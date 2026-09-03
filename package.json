@@ -1,0 +1,15 @@
+{
+  "name": "poliscroll",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace de PoliScroll",
+  "scripts": {
+    "dev:web": "npm --prefix apps/web run dev --",
+    "build:web": "npm --prefix apps/web run build",
+    "lint:web": "npm --prefix apps/web run lint",
+    "build:api": "npm --prefix services/api run build",
+    "dev:api": "npm --prefix services/api run dev",
+    "install:web": "npm --prefix apps/web install",
+    "install:api": "npm --prefix services/api install"
+  }
+}
