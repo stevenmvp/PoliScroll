@@ -1,13 +1,22 @@
 version: 1
 applications:
-  - appRoot: apps/amplify-smoke
+  - appRoot: apps/web
+    env:
+      variables:
+        AMPLIFY_MONOREPO_APP_ROOT: apps/web
     frontend:
       phases:
+        preBuild:
+          commands:
+            - npm ci
         build:
           commands:
-            - mkdir -p dist
-            - cp index.html dist/index.html
+            - npm run build
       artifacts:
-        baseDirectory: dist
+        baseDirectory: .next
         files:
           - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - .next/cache/**/*
