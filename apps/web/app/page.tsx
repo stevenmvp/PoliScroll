@@ -15,6 +15,7 @@ const options = ["La fuerza", "El movimiento", "La energía", "La velocidad"];
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("inicio");
+  const [navCollapsed, setNavCollapsed] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [notice, setNotice] = useState("");
@@ -37,9 +38,41 @@ export default function Home() {
   };
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${navCollapsed ? "nav-collapsed" : ""}`}>
+      <aside className="desktop-sidebar" aria-label="Navegación lateral">
+        <div className="sidebar-heading">
+          <span className="sidebar-kicker">ESPACIO</span>
+          <strong>Aprendizaje</strong>
+        </div>
+        <nav className="sidebar-nav" aria-label="Secciones de aprendizaje">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              className={`sidebar-item ${activeTab === tab.id ? "active" : ""}`}
+              aria-label={tab.label}
+              title={navCollapsed ? tab.label : undefined}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span aria-hidden="true">{tab.icon}</span>
+              <small>{tab.label}</small>
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-note">Tu próximo reto está a un gesto de distancia.</div>
+      </aside>
       <header className="topbar">
-        <div className="topbar-brand"><span className="brand-mark">P</span><strong>PoliBoards</strong></div>
+        <div className="topbar-brand">
+          <button
+            className="sidebar-toggle"
+            aria-label={navCollapsed ? "Expandir navegación" : "Colapsar navegación"}
+            aria-expanded={!navCollapsed}
+            title={navCollapsed ? "Expandir navegación" : "Colapsar navegación"}
+            onClick={() => setNavCollapsed((collapsed) => !collapsed)}
+          >
+            <span aria-hidden="true">{navCollapsed ? "→" : "←"}</span>
+          </button>
+          <span className="brand-mark">P</span><strong>PoliBoards</strong>
+        </div>
         <div className="top-actions">
           <span className={`connection ${online ? "is-online" : "is-offline"}`} aria-label={online ? "En línea" : "Sin conexión"}>●</span>
           <button className="icon-button" aria-label="Buscar" onClick={() => showNotice("Búsqueda próximamente")}>⌕</button>
