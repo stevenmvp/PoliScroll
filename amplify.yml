@@ -3,11 +3,12 @@ frontend:
   phases:
     preBuild:
       commands:
-        - echo "Preparing static web app"
+        - cd apps/web
+        - npm ci
     build:
       commands:
-        - mkdir -p apps/web/dist
-        - cp apps/web/index.html apps/web/dist/index.html
+        - cd apps/web
+        - npm run build
   artifacts:
     baseDirectory: apps/web/dist
     files:

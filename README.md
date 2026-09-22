@@ -4,15 +4,17 @@ PoliScroll is a lightweight web project focused on content discoverability and r
 
 ## Phase zero
 
-This repository has been restarted as a minimal static web foundation for future product work.
+This repository has been restarted as a minimal TypeScript web foundation for future product work.
 
 ## Quick start
 
-1. Review `.env.example` and copy it to `.env` if needed.
-2. Open `apps/web/index.html` in a browser or serve the folder with any static web server.
+1. Install dependencies with `npm ci --prefix apps/web`.
+2. Run the development server with `npm run dev --prefix apps/web`.
+3. Validate the production bundle with `npm run build --prefix apps/web`.
 
 ## Project structure
 
-- `apps/web/index.html` — the app entry page
+- `apps/web/src/main.ts` — the typed application entry point
+- `apps/web/src/styles.css` — responsive visual system
 - `docs/FASES.md` — project phase notes
 - `amplify.yml` — deployment configuration for AWS Amplify
