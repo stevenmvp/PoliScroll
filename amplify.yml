@@ -1,22 +1,16 @@
 version: 1
-applications:
-  - appRoot: apps/web
-    env:
-      variables:
-        AMPLIFY_MONOREPO_APP_ROOT: apps/web
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm ci
-        build:
-          commands:
-            - npm run build
-      artifacts:
-        baseDirectory: .next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
-          - .next/cache/**/*
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - echo "Preparing static web app"
+    build:
+      commands:
+        - mkdir -p apps/web/dist
+        - cp apps/web/index.html apps/web/dist/index.html
+  artifacts:
+    baseDirectory: apps/web/dist
+    files:
+      - "**/*"
+  cache:
+    paths: []
