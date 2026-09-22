@@ -18,6 +18,7 @@ if (!app) {
 const root = app;
 let activeSection: Section = "Noticias";
 let isCollapsed = false;
+let selectedAnswer: string | null = null;
 
 function render(): void {
   root.innerHTML = `
@@ -46,11 +47,21 @@ function render(): void {
             <article class="module module-groups"><div class="module-art">◌</div><div><span class="module-kicker">Comunidad</span><h2>Comunidades y grupos</h2><p>Únete a grupos de interés, culturales y de bienestar estudiantil.</p><strong>18 grupos disponibles</strong></div><button class="outline-button" type="button" data-action="Explorar">Explorar <span>→</span></button></article>
           </section>
           <section class="quick-actions" aria-label="Acciones rápidas"><button type="button" data-action="No me interesa">No me interesa</button><button type="button" data-action="Actualizar">Actualizar <span aria-hidden="true">↻</span></button></section>
+          <section class="activity-card" aria-labelledby="activity-title">
+            <div class="activity-header"><span class="module-kicker">Actividad recomendada</span><span class="activity-count">01 / 04</span></div>
+            <h2 id="activity-title">¿Qué estudia la biomecánica?</h2>
+            <p>Responde y recibe una pista inmediata para continuar.</p>
+            <div class="answer-list" role="group" aria-label="Opciones de respuesta">
+              ${["La fuerza", "El movimiento", "La energía", "La velocidad"].map((answer) => answerButton(answer)).join("")}
+            </div>
+            ${selectedAnswer ? `<div class="answer-feedback ${selectedAnswer === "El movimiento" ? "is-correct" : "is-wrong"}" role="status">${selectedAnswer === "El movimiento" ? "¡Correcto! La biomecánica estudia el movimiento." : "Casi. Intenta relacionarlo con el movimiento humano."}</div>` : ""}
+          </section>
         </main>
       </div>
       <nav class="mobile-nav" aria-label="Navegacion movil">
         ${sections.map((section) => mobileButton(section)).join("")}
       </nav>
+      <button class="chat-fab" id="chat-fab" type="button" aria-label="Abrir PoliChat" title="Abrir PoliChat"><span class="chat-logo" aria-hidden="true">P</span><small>PoliChat</small></button>
       <div class="toast" id="toast" role="status" hidden></div>
     </div>
   `;
@@ -71,6 +82,15 @@ function render(): void {
   document.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((button) => {
     button.addEventListener("click", () => showToast(`${button.dataset.action}: estamos preparando esta experiencia.`));
   });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-answer]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedAnswer = button.dataset.answer ?? null;
+      render();
+    });
+  });
+
+  document.querySelector<HTMLButtonElement>("#chat-fab")?.addEventListener("click", () => showToast("PoliChat: tu asistente estará listo en la siguiente fase."));
 }
 
 function menuButton(section: { id: Section; icon: string }): string {
@@ -81,6 +101,11 @@ function menuButton(section: { id: Section; icon: string }): string {
 function mobileButton(section: { id: Section; icon: string }): string {
   const active = activeSection === section.id ? " is-active" : "";
   return `<button class="mobile-button${active}" type="button" data-section="${section.id}"><span aria-hidden="true">${section.icon}</span><small>${section.id}</small></button>`;
+}
+
+function answerButton(answer: string): string {
+  const state = selectedAnswer === answer ? (answer === "El movimiento" ? " is-correct" : " is-wrong") : "";
+  return `<button class="answer-button${state}" type="button" data-answer="${answer}">${answer}<span aria-hidden="true">${selectedAnswer === answer ? (answer === "El movimiento" ? "✓" : "×") : "→"}</span></button>`;
 }
 
 function showToast(message: string): void {
