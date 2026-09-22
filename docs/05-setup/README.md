@@ -6,8 +6,8 @@ Preparar un entorno de desarrollo estable para arrancar el proyecto sin problema
 
 ## 1. Requisitos iniciales
 
-- Node.js 18 o superior
-- npm o pnpm o yarn
+- Node.js 20 o superior
+- npm 10 o superior
 - Git
 - VS Code
 - Docker Desktop (recomendado para servicios locales)
@@ -60,7 +60,9 @@ PoliScroll/
 
 ## 5. Variables de entorno
 
-Crear un archivo .env.local o .env con los datos necesarios para:
+Copiar `.env.example` como `.env.local` solo cuando una fase necesite variables locales. La Fase 0 no requiere Cognito, base de datos, Redis ni IA para compilar la aplicación.
+
+Crear un archivo `.env.local` o `.env` con los datos necesarios para:
 
 - base de datos
 - autenticación con Cognito
@@ -83,7 +85,21 @@ Variables base esperadas:
 
 No se deben hardcodear secretos en el código ni en archivos públicos.
 
-## 6. Flujo recomendado
+## 6. Instalación y validación de la Fase 0
+
+Desde la raíz del repositorio:
+
+```bash
+npm ci --prefix apps/web
+npm ci --prefix services/api
+npm run lint:web
+npm run build:web
+npm run build:api
+```
+
+El despliegue de prueba usa `apps/amplify-smoke` y no necesita dependencias npm. La aplicación Next real se retoma cuando estos checks locales estén verdes.
+
+## 7. Flujo recomendado
 
 1. clonar el repositorio
 2. instalar dependencias del proyecto
@@ -94,7 +110,7 @@ No se deben hardcodear secretos en el código ni en archivos públicos.
 7. integrar IA y real time
 8. programar despliegue por etapas
 
-## 7. Buenas prácticas
+## 8. Buenas prácticas
 
 - mantener documentación actualizada
 - no mezclar cambios de infraestructura y lógica funcional
@@ -102,6 +118,6 @@ No se deben hardcodear secretos en el código ni en archivos públicos.
 - verificar cada bloque antes de pasar al siguiente
 - mantener un .env.example actualizado
 
-## 8. Siguiente paso
+## 9. Siguiente paso
 
-Una vez concluido el setup local, se avanzará hacia la base del proyecto, módulos por rol y primera versión del MVP funcional.
+Una vez concluida la Fase 0, se pasará a la Fase 1 de diagnóstico del producto. No se integrarán Cognito, IA o tiempo real antes de cerrar los checks de esta fase.

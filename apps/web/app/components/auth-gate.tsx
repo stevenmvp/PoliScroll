@@ -16,6 +16,8 @@ export function ProtectedRoute({
   useEffect(() => {
     const session = getStoredSession();
     const allowedAccess = session.isAuthenticated && session.role && allowed.includes(session.role);
+    // localStorage solo está disponible después de hidratar el componente.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthorized(Boolean(allowedAccess));
     setReady(true);
   }, [allowed]);

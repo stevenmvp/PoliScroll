@@ -4,6 +4,8 @@
 
 Organizar la construcción de PoliScroll en hitos verificables y progresivos, con una secuencia clara de validación, documentación y entregables. Este plan fue ampliado a 20 fases para sostener un desarrollo más robusto, modular y escalable.
 
+Este documento es la referencia operativa. El plan general describe la visión del producto, pero la numeración y los criterios de salida de este roadmap gobiernan el trabajo del repositorio.
+
 ## Principios de ejecución
 
 - cada fase debe cerrar con evidencia verificable
@@ -14,20 +16,37 @@ Organizar la construcción de PoliScroll en hitos verificables y progresivos, co
 
 ## Fase 0: preparación del entorno y base del repositorio
 
+### Estado
+
+Completada localmente y validada en Amplify. La siguiente etapa es la Fase 1: diagnóstico del problema y validación del producto.
+
 ### Objetivos
 - preparar el entorno local
-- asegurar la línea base de Node, Git y VS Code
-- construir la estructura del repositorio
-- crear convenciones de trabajo y documentación inicial
+- fijar la línea base de Node, npm y Git
+- verificar que las aplicaciones puedan instalarse y compilarse
+- documentar convenciones y variables sin secretos
 
 ### Entregables
 - repositorio base
-- estructura modular por capas
-- .env.example
+- estructura modular por capas documentada
+- `.env.example`
 - README principal y AGENTS.md
+- evidencia de instalación, lint y build
 
 ### Validación
-- el proyecto se puede clonar y arrancar sin errores de configuración
+- `npm install --prefix apps/web` termina correctamente
+- `npm install --prefix services/api` termina correctamente
+- `npm run build:web` termina correctamente
+- `npm run lint:web` termina correctamente
+- `npm run build:api` termina correctamente
+- el smoke test de Amplify publica una pantalla visible
+
+### Observaciones
+
+- `npm run lint:web` termina con código 0 y conserva tres warnings de navegación relativa.
+- `npm run build:web` termina correctamente.
+- `npm run build:api` termina correctamente.
+- El smoke test de Amplify publica la pantalla de diagnóstico.
 
 ## Fase 1: diagnóstico del problema y validación del producto
 

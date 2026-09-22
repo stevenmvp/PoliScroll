@@ -16,11 +16,10 @@ const options = ["La fuerza", "El movimiento", "La energía", "La velocidad"];
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("inicio");
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [online, setOnline] = useState(true);
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    setOnline(navigator.onLine);
     const onlineHandler = () => setOnline(true);
     const offlineHandler = () => setOnline(false);
     window.addEventListener("online", onlineHandler);

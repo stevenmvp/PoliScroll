@@ -1,5 +1,24 @@
 # PoliScroll
 
+## Inicio por fases
+
+El proyecto se reconstruirá de forma incremental. La referencia operativa es el [roadmap por fases](docs/04-roadmap/README.md); cada fase debe cerrar con una validación antes de comenzar la siguiente.
+
+### Fase 0: base local
+
+Requisitos: Node.js 20+, npm 10+ y Git.
+
+```bash
+npm ci --prefix apps/web
+npm ci --prefix services/api
+npm run build:web
+npm run build:api
+```
+
+El despliegue mínimo de Amplify se mantiene como smoke test en [apps/amplify-smoke](apps/amplify-smoke/README.md). La configuración original de la aplicación web está conservada en [amplify-web.yml](amplify-web.yml).
+
+Consulta el [setup detallado](docs/05-setup/README.md) para el estado de cada comprobación. No se deben añadir Cognito, base de datos, IA ni tiempo real hasta cerrar esta fase.
+
 PoliScroll es un proyecto de plataforma educativa interactiva orientada a estudiantes, profesores y administradores, con una experiencia tipo “reel” o “short-form learning”. La idea central es convertir la enseñanza en un flujo rápido, visual, reactivo y motivador, con microaprendizajes, feedback inmediato y apoyo de inteligencia artificial para guiar procesos de resolución, retroalimentación y mejora continua.
 
 ## Objetivo general
