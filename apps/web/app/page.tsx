@@ -2,37 +2,106 @@
 
 import { useEffect, useState } from "react";
 
-type Tab = "inicio" | "perfil" | "chats" | "crear" | "historial" | "ranking";
+type Tab = "inicio" | "actividades" | "chat" | "perfil";
+
 const tabs: { id: Tab; label: string; icon: string }[] = [
-  { id: "inicio", label: "Inicio", icon: "⌂" }, { id: "perfil", label: "Perfil", icon: "◉" },
-  { id: "chats", label: "Chats", icon: "◌" }, { id: "crear", label: "Crear", icon: "+" },
-  { id: "historial", label: "Historial", icon: "↺" }, { id: "ranking", label: "Ranking", icon: "★" },
+  { id: "inicio", label: "Inicio", icon: "⌂" },
+  { id: "actividades", label: "Retos", icon: "▣" },
+  { id: "chat", label: "PoliChat", icon: "◌" },
+  { id: "perfil", label: "Perfil", icon: "♙" },
 ];
-const courses = [
-  { title: "Cálculo diferencial", owner: "Prof. Laura Méndez", detail: "Regla de la cadena · 12 retos", color: "cyan", progress: 72 },
-  { title: "Pensamiento lógico", owner: "Mateo Rojas · estudiante", detail: "Sala abierta · 8 participantes", color: "pink", progress: 48 },
-  { title: "Ciencias que explican", owner: "Prof. Daniel Gómez", detail: "Biología · 5 actividades nuevas", color: "lime", progress: 91 },
-];
-const history = ["Reto de funciones compuestas", "Mapa: ecosistemas colombianos", "Duelo de conceptos lógicos"];
+
+const options = ["La fuerza", "El movimiento", "La energía", "La velocidad"];
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("inicio");
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
-  const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
-  useEffect(() => { setOnline(navigator.onLine); const on = () => setOnline(true); const off = () => setOnline(false); window.addEventListener("online", on); window.addEventListener("offline", off); if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {}); return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); }; }, []);
-  const showNotice = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(""), 1800); };
-  const renderContent = () => {
-    if (activeTab === "perfil") return <Module title="Tu perfil" eyebrow="IDENTIDAD POLIAPP"><div className="profile-card"><div className="profile-avatar">A</div><div><h2>Ana García</h2><p>Estudiante · Colegio del Futuro</p><span className="level-pill">Nivel 3 · 1.280 XP</span></div></div><div className="stat-grid"><Stat label="Racha" value="12 días" /><Stat label="Retos" value="48" /><Stat label="Ranking" value="#12" /></div><button className="primary-button full" onClick={() => showNotice("Perfil guardado localmente")}>Guardar perfil</button><button className="login-link" onClick={() => showNotice("Abriendo inicio de sesión simulado")}>Iniciar sesión / Crear usuario</button></Module>;
-    if (activeTab === "chats") return <Module title="Chats y grupos" eyebrow="EN CONTACTO"><div className="chat-list">{["Cálculo I · grupo de estudio", "PoliParty · sala general", "Prof. Laura Méndez"].map((chat, index) => <button key={chat} className="chat-row" onClick={() => showNotice(`Abriendo ${chat}`)}><span className={`chat-avatar c${index}`}>{["C", "P", "L"][index]}</span><div><strong>{chat}</strong><p>{["Mañana resolvemos límites", "Nueva partida disponible", "Feedback de tu último reto"][index]}</p></div><b>{index + 1}</b></button>)}</div><button className="outline-button full" onClick={() => showNotice("Creando nuevo grupo")}>+ Crear grupo</button></Module>;
-    if (activeTab === "crear") return <Module title="Crear actividad" eyebrow="PARA CREADORES"><p className="module-copy">Arma una experiencia en minutos. Elige una plantilla y deja que PoliIA te ayude a construirla.</p><div className="template-grid">{["Trivia rápida", "Mapa de ideas", "Ordena los pasos", "Duelo de conceptos"].map((item, index) => <button key={item} className="template-card" onClick={() => showNotice(`Plantilla ${item} seleccionada`)}><span>{["?", "◎", "≡", "⚡"][index]}</span><strong>{item}</strong><small>{index + 3} formatos</small></button>)}</div><button className="primary-button full" onClick={() => showNotice("Asistente IA preparado")}>Crear con PoliIA →</button></Module>;
-    if (activeTab === "historial") return <Module title="Tu historial" eyebrow="PROGRESO"><div className="history-score"><span>Esta semana</span><strong>+240 XP</strong><small>18 minutos de aprendizaje · +14% vs. anterior</small></div><div className="history-list">{history.map((item, index) => <button key={item} onClick={() => showNotice(`Revisando ${item}`)}><span>{index + 1}</span><div><strong>{item}</strong><small>{index === 0 ? "Hoy · 92% correcto" : index === 1 ? "Ayer · completado" : "Lunes · 1.280 puntos"}</small></div><b>›</b></button>)}</div></Module>;
-    if (activeTab === "ranking") return <Module title="Ranking PoliApp" eyebrow="COMPITE CON PROPÓSITO"><div className="ranking-hero"><span>Tu posición</span><strong>#12</strong><small>Subiste 4 lugares esta semana</small></div><div className="ranking-list">{["Santiago P.", "Valentina R.", "Ana García", "Nicolás T.", "Laura C."].map((name, index) => <div key={name} className={name === "Ana García" ? "ranking-row me" : "ranking-row"}><b>{index + 1}</b><span className="mini-avatar">{name[0]}</span><strong>{name}</strong><small>{[1820, 1640, 1280, 1190, 1100][index]} XP</small></div>)}</div></Module>;
-    return <><section className="hero-panel"><div><p className="eyebrow">PÓLISCROLL · POLIAPP</p><h1>Aprende en movimiento.</h1><p className="hero-copy">Cursos, retos y grupos que siguen tu ritmo. Explora sin cuenta; guarda tu progreso cuando quieras.</p><button className="primary-button" onClick={() => showNotice("El feed personalizado estará disponible al iniciar sesión")}>Descubrir mi ruta <span>→</span></button></div><div className="hero-mark"><span>PP</span><small>POLIPARTY</small></div></section><section className="section-heading"><div><p className="eyebrow">TU CAMPUS</p><h2>Lo que estás aprendiendo</h2></div><button className="text-button" onClick={() => showNotice("Buscando cursos públicos")}>Ver todo</button></section><div className="search-box"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar cursos, grupos o temas" /></div><section className="course-feed">{courses.filter((course) => course.title.toLowerCase().includes(query.toLowerCase())).map((course) => <CourseCard key={course.title} course={course} onAction={showNotice} />)}</section><section className="section-heading"><div><p className="eyebrow">EN COMUNIDAD</p><h2>Grupos recomendados</h2></div><button className="text-button" onClick={() => showNotice("Explorando grupos cercanos")}>Explorar</button></section><div className="community-row"><div><strong>Ágora de matemáticas</strong><span>24 miembros · dirigido por Prof. Camilo</span></div><button className="outline-button" onClick={() => showNotice("Solicitud enviada")}>Unirme</button></div></>;
+
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    const onlineHandler = () => setOnline(true);
+    const offlineHandler = () => setOnline(false);
+    window.addEventListener("online", onlineHandler);
+    window.addEventListener("offline", offlineHandler);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+    return () => {
+      window.removeEventListener("online", onlineHandler);
+      window.removeEventListener("offline", offlineHandler);
+    };
+  }, []);
+
+  const showNotice = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(""), 1800);
   };
-  return <main className="app-shell"><header className="topbar"><div className="brand"><span className="brand-dot" />PoliScroll</div><div className="top-actions"><span className={`connection ${online ? "is-online" : "is-offline"}`}>{online ? "En línea" : "Sin conexión"}</span><button className="avatar-button" onClick={() => setActiveTab("perfil")}>A</button></div></header>{!online && <div className="offline-banner">Sin conexión · tu perfil y progreso guardados siguen disponibles</div>}<div className="scroll-content">{renderContent()}</div>{notice && <div className="toast">{notice}</div>}<button className="party-button" onClick={() => showNotice("PoliParty eligió: Duelo de conceptos")}><span>✦</span><b>PoliParty</b><small>jugar</small></button><nav className="bottom-nav">{tabs.map((tab) => <button key={tab.id} className={activeTab === tab.id ? "nav-item active" : "nav-item"} onClick={() => setActiveTab(tab.id)}><span>{tab.icon}</span><small>{tab.label}</small></button>)}</nav></main>;
+
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div className="topbar-brand"><span className="brand-mark">P</span><strong>PoliBoards</strong></div>
+        <div className="top-actions">
+          <span className={`connection ${online ? "is-online" : "is-offline"}`} aria-label={online ? "En línea" : "Sin conexión"}>●</span>
+          <button className="icon-button" aria-label="Buscar" onClick={() => showNotice("Búsqueda próximamente")}>⌕</button>
+        </div>
+      </header>
+
+      {!online && <div className="offline-banner">Sin conexión · tus actividades guardadas siguen disponibles</div>}
+
+      {activeTab === "inicio" ? (
+        <div className="feed" aria-label="Feed de aprendizaje">
+          <section className="feed-card welcome-card">
+            <div className="card-kicker">POLISCROLL · HOY</div>
+            <h1>Aprende en movimiento.</h1>
+            <p>Desliza para descubrir una nueva forma de estudiar, practicar y compartir.</p>
+            <div className="welcome-stats"><span><b>12</b> días de racha</span><span><b>240</b> XP esta semana</span></div>
+            <span className="swipe-hint">Desliza hacia arriba <b>↑</b></span>
+          </section>
+
+          <section className="feed-card quiz-card">
+            <div className="feed-card-header"><span className="type-pill navy">EVALUACIÓN RÁPIDA</span><span className="card-count">01 / 04</span></div>
+            <h2>¿Qué estudia la biomecánica?</h2>
+            <p className="question-copy">Pon a prueba tu intuición antes de continuar.</p>
+            <div className="answer-list">
+              {options.map((option) => {
+                const isSelected = selectedAnswer === option;
+                const isCorrect = option === "El movimiento";
+                return <button key={option} className={`answer-option ${isSelected ? (isCorrect ? "correct" : "wrong") : ""}`} onClick={() => setSelectedAnswer(option)}>{option}<span>{isSelected ? (isCorrect ? "✓" : "×") : "→"}</span></button>;
+              })}
+            </div>
+            <div className="progress-line"><i style={{ width: "25%" }} /></div>
+            {selectedAnswer && <p className={`answer-feedback ${selectedAnswer === "El movimiento" ? "success" : "error"}`}>{selectedAnswer === "El movimiento" ? "¡Correcto! +20 XP" : "Casi. Revisa el concepto y vuelve a intentarlo."}</p>}
+          </section>
+
+          <section className="feed-card challenge-card">
+            <div className="feed-card-header"><span className="type-pill cyan">MINI-RETO</span><span className="card-count">02 / 04</span></div>
+            <div className="challenge-icon">⚙</div>
+            <h2>Activa el brazo robótico</h2>
+            <p>Ordena los pasos del circuito lógico para completar el reto.</p>
+            <button className="action-button cyan-button" onClick={() => showNotice("Reto preparado para jugar")}>Comenzar reto <span>→</span></button>
+          </section>
+
+          <section className="feed-card flashcard-card">
+            <div className="feed-card-header"><span className="type-pill yellow">PÍLDORA DE CONOCIMIENTO</span><span className="card-count">03 / 04</span></div>
+            <span className="flashcard-label">CONCEPTO DEL DÍA</span>
+            <h2>La energía no se crea ni se destruye.</h2>
+            <p>Solo se transforma. Guarda esta tarjeta para repasarla más tarde.</p>
+            <button className="action-button dark-button" onClick={() => showNotice("Tarjeta guardada en tu biblioteca")}>Guardar tarjeta <span>＋</span></button>
+          </section>
+        </div>
+      ) : <PlaceholderView tab={activeTab} onAction={showNotice} />}
+
+      {notice && <div className="toast" role="status">{notice}</div>}
+      <button className="party-button" aria-label="Abrir PoliChat" onClick={() => { setActiveTab("chat"); showNotice("PoliChat está listo para ayudarte"); }}><span className="party-logo">P</span><b>PoliChat</b><small>pregunta</small></button>
+      <nav className="bottom-nav" aria-label="Navegación principal">
+        {tabs.map((tab) => <button key={tab.id} className={`nav-item ${activeTab === tab.id ? "active" : ""}`} onClick={() => setActiveTab(tab.id)}><span>{tab.icon}</span><small>{tab.label}</small></button>)}
+      </nav>
+    </main>
+  );
 }
 
-function CourseCard({ course, onAction }: { course: (typeof courses)[number]; onAction: (message: string) => void }) { return <article className={`course-card ${course.color}`}><div className="card-top"><span className="course-tag">{course.color === "cyan" ? "MATEMÁTICAS" : course.color === "pink" ? "PENSAMIENTO" : "CIENCIA"}</span><span className="course-progress">{course.progress}%</span></div><h3>{course.title}</h3><p>{course.detail}</p><div className="progress-track"><i style={{ width: `${course.progress}%` }} /></div><div className="card-footer"><span>Creado por <b>{course.owner}</b></span><button onClick={() => onAction(`Abriendo ${course.title}`)}>Continuar →</button></div></article>; }
-function Module({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }) { return <section className="module-page"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1>{children}</section>; }
-function Stat({ label, value }: { label: string; value: string }) { return <div className="stat"><strong>{value}</strong><small>{label}</small></div>; }
+function PlaceholderView({ tab, onAction }: { tab: Tab; onAction: (message: string) => void }) {
+  const content = ({ actividades: ["Tu biblioteca de retos", "Retos guardados, actividades de tus profesores y nuevas experiencias."], chat: ["PoliChat", "Tu asistente para entender conceptos, practicar y crear actividades."], perfil: ["Tu progreso", "12 días de racha · 48 retos completados · Nivel 3"] } as Partial<Record<Tab, string[]>>)[tab] ?? ["Inicio", "Explora tu feed de aprendizaje."];
+  return <section className="placeholder-view"><span className="page-icon">{tab === "chat" ? "◌" : tab === "perfil" ? "♙" : "▣"}</span><p className="card-kicker">POLISCROLL</p><h1>{content[0]}</h1><p>{content[1]}</p><button className="action-button cyan-button" onClick={() => onAction("Esta sección se está preparando")}>Explorar <span>→</span></button></section>;
+}
