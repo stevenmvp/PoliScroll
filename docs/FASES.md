@@ -11,17 +11,10 @@ Se crea una base mínima del proyecto para definir el repositorio, la estructura
 
 ## Fase 1: shell TypeScript responsive
 
-- Estado: en implementación
+- Estado: implementada, pendiente de publicación visual
 - Objetivo: construir una base tipada y adaptable para móvil, tablet y escritorio.
-- Entregable: aplicación Vite en `src/main.ts`, estilos responsive, navegación colapsable y navegación móvil.
+- Entregable: aplicación Vite en `src/main.ts`, paleta institucional, navegación colapsable, pestañas de producto, buscador, tarjetas de recomendación y navegación móvil.
 - Criterio de salida: `npm run build` correcto, commit publicado y vista confirmada en Amplify.
-
-## Fase 1: shell responsive
-
-- Estado: en implementación
-- Objetivo: adaptar la experiencia a móvil, tablet y escritorio.
-- Entregable: navegación lateral colapsable, navegación inferior móvil y animaciones accesibles.
-- Criterio de salida: probar el artefacto local, publicar el commit y confirmar la vista en Amplify.
 
 ## Fase 2: contenido de aprendizaje
 
