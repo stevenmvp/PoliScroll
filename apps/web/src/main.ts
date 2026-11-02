@@ -1,4 +1,6 @@
 import "./styles.css";
+import "./modules/arcade/arcade.css";
+import { mountArcade, unmountArcade } from "./modules/arcade/mount";
 import type { EducationalLevel } from "./domain/identity";
 import type { AuthSession, UserRole } from "./domain/identity";
 import {
@@ -11,7 +13,12 @@ import {
   logout,
   register,
 } from "./services/amplify";
-import { ensureUserProfile } from "./services/data";
+import {
+  createActivitySession,
+  ensureUserProfile,
+  finishActivitySession,
+  recordActivityEvent,
+} from "./services/data";
 
 interface FeedItem {
   id: string;
@@ -348,6 +355,7 @@ function render(): void {
     return;
   }
 
+  unmountArcade();
   const selectedModule = modules.find((module) => module.id === selectedModuleId) ?? modules[0];
   root.innerHTML = `
     <div class="ps-app">
@@ -629,6 +637,12 @@ function renderRoleWorkspace(): string {
 function renderModule(module: ModuleData): string {
   const isActivities = module.id === "actividades";
   const isGames = module.id === "juegos";
+  if (isGames) {
+    return `<section class="ps-module-view ps-arcade-module" aria-labelledby="module-title">
+      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Juegos <span class="ps-breadcrumb">/ Vortex Arcade</span></p><h1 id="module-title">Vortex Arcade<span class="ps-heading-period">.</span></h1><p class="ps-module-description">El arcade educativo de PoliScroll: 16 juegos 2D y 3D, entrenamientos, metrónomo, sonidos y tutor académico.</p></div><div class="ps-module-total"><span>Juegos portados</span><strong>16</strong></div></div>
+      <div id="arcade-root" class="ps-arcade-root"></div>
+    </section>`;
+  }
   return `
     <section class="ps-module-view tone-${module.tone}" aria-labelledby="module-title">
       <div class="ps-module-heading">
@@ -644,8 +658,7 @@ function renderModule(module: ModuleData): string {
         <label class="ps-filter-field"><span>${isGames ? "Tema" : "Filtrar"}</span><select id="module-filter" aria-label="Filtrar ${module.title}">
           ${isGames ? `<option value="all">Todos los temas</option>${gameTopics.map((topic) => `<option value="${topic}">${topic}</option>`).join("")}` : isActivities ? `<option value="all">Todas</option><option value="available">Con cupos</option><option value="mine">Creadas por mí</option>` : `<option value="all">Todo el módulo</option><option value="saved">Guardados</option>`}
         </select></label>
-        ${isGames ? `<label class="ps-filter-field"><span>Área</span><select id="game-level-filter" aria-label="Filtrar por área educativa"><option value="all">Todas las áreas</option>${educationalLevels.map((level) => `<option value="${level}">${level}</option>`).join("")}</select></label>` : ""}
-        ${isActivities ? `<button class="ps-create-button" id="create-activity" type="button"><span aria-hidden="true">＋</span> Crear actividad</button>` : isGames ? `<span class="ps-game-hint">Elige un tema y supera 5 retos</span>` : ""}
+        ${isActivities ? `<button class="ps-create-button" id="create-activity" type="button"><span aria-hidden="true">＋</span> Crear actividad</button>` : ""}
       </div>
       <div class="ps-feed-caption"><span id="feed-result-count"></span><span class="ps-feed-caption-note">${isGames ? "Una mecánica, muchos temas: el contenido se adapta a tu elección" : isActivities ? "Actividades disponibles y de tu autoría" : "Contenido actualizado del campus"}</span></div>
       <div class="ps-module-feed" id="module-feed" aria-live="polite" aria-busy="false"></div>
@@ -654,6 +667,12 @@ function renderModule(module: ModuleData): string {
 }
 
 function renderFeedItems(module: ModuleData): void {
+  if (module.id === "juegos") {
+    const arcadeHost = document.querySelector<HTMLDivElement>("#arcade-root");
+    if (!arcadeHost) return;
+    mountArcade(arcadeHost);
+    return;
+  }
   const feed = document.querySelector<HTMLDivElement>("#module-feed");
   if (!feed) return;
 
@@ -675,32 +694,6 @@ function renderFeedItems(module: ModuleData): void {
     }));
     return;
   }
-  if (module.id === "juegos") {
-    const selectedTopic = activityFilter;
-    const filteredGames = educationalGames.filter((game) => {
-      const matchesQuery = `${game.title} ${game.description} ${game.mechanic} ${game.skills}`.toLocaleLowerCase("es").includes(query);
-      const matchesTopic = selectedTopic === "all" || game.topics.includes(selectedTopic);
-      const matchesLevel = gameLevelFilter === "all" || game.levels?.includes(gameLevelFilter);
-      return matchesQuery && matchesTopic && matchesLevel;
-    });
-    document.querySelector<HTMLSpanElement>("#feed-result-count")!.textContent = `${filteredGames.length} ${filteredGames.length === 1 ? "juego" : "juegos"}`;
-    feed.innerHTML = filteredGames.length ? filteredGames.map((game, index) => `
-      <article class="ps-feed-card ps-game-card" style="--item-order:${index}">
-        <div class="ps-feed-card-top"><span class="ps-feed-tag">${game.difficulty} · ${game.mechanic}</span><span class="ps-feed-index">${String(index + 1).padStart(2, "0")}</span></div>
-        <div class="ps-game-icon" aria-hidden="true">${game.icon}</div>
-        <div class="ps-feed-card-content"><h2>${game.title}</h2><p>${game.description}</p><span class="ps-feed-meta"><span aria-hidden="true">✦</span>Mecánica original: ${game.originalMechanic} · Primaria · Secundaria · Universitaria</span></div>
-        <button class="ps-feed-action" type="button" data-play-game="${game.id}">Jugar ahora<span aria-hidden="true">↗</span></button>
-      </article>
-    `).join("") : `<div class="ps-empty-state"><span aria-hidden="true">⌕</span><strong>No encontramos juegos</strong><p>Prueba con otro tema o mecánica.</p></div>`;
-    feed.querySelectorAll<HTMLButtonElement>("[data-play-game]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const game = educationalGames.find((candidate) => candidate.id === button.dataset.playGame);
-        if (game) showToast(`${game.title}: mecánica individual disponible para la siguiente fase de portado.`);
-      });
-    });
-    return;
-  }
-
   const filteredItems = module.items.filter((item) => {
     const matchesQuery = `${item.title} ${item.description} ${item.meta} ${item.tag}`.toLocaleLowerCase("es").includes(query);
     const matchesFilter = activityFilter === "all"
@@ -792,12 +785,37 @@ function showGameDialog(group: ActivityGroup): void {
   let finished = false;
   let startedAt = 0;
   let timerFrame = 0;
+  let activitySessionId: string | null = null;
+  let traceWarning = false;
   const updateHud = (): void => { scoreElement.textContent = String(score); countElement.textContent = `${Math.min(completed + 1, 6)} / 6`; };
+  const trace = (eventType: string, stage?: number, payload?: Record<string, unknown>): void => {
+    if (!activitySessionId) return;
+    void recordActivityEvent({
+      sessionId: activitySessionId,
+      activityId: group.id,
+      gameId: stage === undefined ? undefined : stages[stage]?.id,
+      eventType,
+      stage,
+      scoreAfter: score,
+      timeRemainingMs: startedAt ? Math.max(0, 90000 - Math.round(performance.now() - startedAt)) : undefined,
+      payload,
+    }).catch(() => { traceWarning = true; });
+  };
   const finish = (): void => {
     if (finished) return;
     finished = true;
     window.cancelAnimationFrame(timerFrame);
     const used = Math.ceil((performance.now() - startedAt) / 1000);
+    if (activitySessionId) {
+      void finishActivitySession({
+        sessionId: activitySessionId,
+        score,
+        durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+        completed: completed === stages.length,
+        abandoned: completed !== stages.length,
+      }).catch(() => { traceWarning = true; });
+    }
+    trace(completed === stages.length ? "completed" : "time_expired", undefined, { completedStages: completed });
     const finishStage = document.querySelector<HTMLElement>("#activity-finish");
     if (!finishStage) return;
     finishStage.innerHTML = `<div class="ps-game-result"><span class="ps-game-result-icon">★</span><p class="ps-eyebrow">Actividad completada</p><h3>${score} puntos</h3><div class="ps-game-summary"><span><strong>${completed}/6</strong> juegos superados</span><span><strong>${used}s</strong> tiempo usado</span><span><strong>${score >= 500 ? "Excelente" : "En progreso"}</strong> desempeño</span></div><p>${score >= 500 ? "Excelente gestión de tiempo, memoria, precisión y estrategia." : "Finalizaste el recorrido. Repite la actividad para mejorar tu puntuación."}</p><button type="button" class="ps-create-button" data-close-game>Volver a juegos <span>↗</span></button></div>`;
@@ -808,6 +826,7 @@ function showGameDialog(group: ActivityGroup): void {
     if (finished || completed !== index) return;
     score += points;
     completed += 1;
+    trace("stage_completed", index, { points });
     correctSound.currentTime = 0;
     correctSound.play().catch(() => undefined);
     document.querySelector<HTMLElement>(`[data-stage="${index}"]`)?.classList.add("is-complete");
@@ -817,7 +836,7 @@ function showGameDialog(group: ActivityGroup): void {
     next?.classList.add("is-active");
     window.setTimeout(() => next?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
   };
-  const penalty = (): void => { score = Math.max(0, score - 25); updateHud(); };
+  const penalty = (): void => { score = Math.max(0, score - 25); updateHud(); trace("mistake"); };
   const tick = (now: number): void => {
     const progress = Math.max(0, 1 - (now - startedAt) / 90000);
     perimeter.style.transform = `scaleX(${progress})`;
@@ -927,8 +946,34 @@ function showGameDialog(group: ActivityGroup): void {
     }
   }, 1000);
   dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
-  dialog.addEventListener("close", () => { window.cancelAnimationFrame(timerFrame); music.pause(); dialog.remove(); }, { once: true });
+  dialog.addEventListener("close", () => {
+    window.cancelAnimationFrame(timerFrame);
+    music.pause();
+    if (!finished) {
+      trace("abandoned", completed, { completedStages: completed });
+      if (activitySessionId) {
+        void finishActivitySession({
+          sessionId: activitySessionId,
+          score,
+          durationMs: startedAt ? Math.max(0, Math.round(performance.now() - startedAt)) : 0,
+          completed: false,
+          abandoned: true,
+        }).catch(() => { traceWarning = true; });
+      }
+    }
+    if (traceWarning) showToast("La actividad terminó, pero algunos datos no pudieron sincronizarse.");
+    dialog.remove();
+  }, { once: true });
   dialog.showModal();
+  void createActivitySession({
+    activityId: group.id,
+    activityTitle: group.title,
+    topic: group.title,
+    startedAt: new Date().toISOString(),
+  }).then((sessionId) => {
+    activitySessionId = sessionId;
+    trace("started");
+  }).catch(() => { traceWarning = true; });
   music.play().catch(() => showToast("El juego continúa sin música de fondo."));
   updateHud();
 }
