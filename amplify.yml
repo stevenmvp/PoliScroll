@@ -5,13 +5,13 @@ applications:
       phases:
         preBuild:
           commands:
-            - npm ci
-            - npm ci --prefix apps/web
+            - cd ../.. && npm ci
+            - cd apps/web && npm ci
         build:
           commands:
-            - npm run backend:typecheck
-            - npm exec --yes --package=@aws-amplify/backend-cli@1.10.0 -- ampx pipeline-deploy --branch "$AWS_BRANCH" --app-id "$AWS_APP_ID" --outputs-out-dir apps/web
-            - npm run build --prefix apps/web
+            - cd ../.. && npm run backend:typecheck
+            - cd ../.. && npm exec --yes --package=@aws-amplify/backend-cli@1.10.0 -- ampx pipeline-deploy --branch "$AWS_BRANCH" --app-id "$AWS_APP_ID" --outputs-out-dir apps/web
+            - cd apps/web && npm run build
       artifacts:
         baseDirectory: dist
         files:
@@ -19,3 +19,4 @@ applications:
       cache:
         paths:
           - node_modules/**/*
+          - ../../node_modules/**/*
