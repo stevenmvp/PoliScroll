@@ -668,6 +668,7 @@
 .ps-role-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 18px; }
 .ps-role-tab { border: 1px solid var(--line); border-radius: 8px; padding: 9px 5px; background: #fff; color: var(--ink-soft); font-size: 11px; font-weight: 800; }
 .ps-role-tab.is-active { border-color: var(--cyan); background: #eafaff; color: var(--blue); }
+.ps-role-help { margin: -8px 0 16px; color: var(--ink-soft); font-size: 11px; line-height: 1.45; }
 .ps-auth-feedback { border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.45; }
 .ps-auth-feedback.is-error { background: #fff0f0; color: #a52c39; }
 .ps-auth-feedback.is-success { background: #f0f8df; color: #557c0a; }
@@ -675,7 +676,13 @@
 .ps-auth-form label { display: grid; gap: 6px; color: var(--blue); font-size: 11px; font-weight: 900; }
 .ps-auth-form input { width: 100%; border: 1px solid #c8dce0; border-radius: 8px; padding: 12px; outline: 0; background: #fbfefe; font-size: 13px; }
 .ps-auth-form input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px #1fb2de22; }
+.ps-password-policy { display: grid; gap: 4px; margin: 0; padding: 0; color: var(--ink-soft); font-size: 10px; font-weight: 700; list-style: none; }
+.ps-password-policy li::before { display: inline-block; width: 15px; color: #aabec3; content: "○"; font-size: 13px; vertical-align: -1px; }
+.ps-password-policy li.is-valid { color: #557c0a; }
+.ps-password-policy li.is-valid::before { color: var(--green); content: "✓"; font-weight: 900; }
 .ps-auth-submit { border: 1px solid var(--blue); border-radius: 9px; padding: 12px 15px; background: var(--blue); color: #fff; font-size: 13px; font-weight: 900; }
+.ps-auth-submit.is-loading { opacity: .8; cursor: wait; }
+.ps-auth-spinner { display: inline-block; width: 13px; height: 13px; margin-right: 7px; border: 2px solid #ffffff66; border-top-color: #fff; border-radius: 50%; animation: ps-spin .7s linear infinite; vertical-align: -2px; }
 .ps-auth-submit:hover { background: #174e76; }
 .ps-auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 18px; }
 .ps-auth-links button { border: 0; padding: 0; background: transparent; color: #08799a; font-size: 11px; font-weight: 800; text-decoration: underline; }

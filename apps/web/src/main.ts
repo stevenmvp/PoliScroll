@@ -337,6 +337,7 @@ let selectedLoginRole: UserRole = "student";
 let pendingEmail = "";
 let authFeedback = "";
 let authFeedbackKind: "error" | "success" = "error";
+let authBusy = false;
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
@@ -467,15 +468,15 @@ function renderAuth(): string {
         <p class="ps-auth-copy">${description}</p>
         ${isLogin ? `<div class="ps-role-tabs" role="tablist" aria-label="Tipo de acceso">
           ${(["student", "teacher", "admin"] as UserRole[]).map((role) => `<button class="ps-role-tab${selectedLoginRole === role ? " is-active" : ""}" type="button" data-role="${role}" role="tab" aria-selected="${selectedLoginRole === role}">${roleLabel(role)}</button>`).join("")}
-        </div>` : ""}
+        </div><p class="ps-role-help">${selectedLoginRole === "student" ? "Puedes crear tu cuenta directamente." : selectedLoginRole === "teacher" ? "El acceso docente se habilita mediante invitación institucional." : "El acceso administrativo se provisiona de forma segura por el equipo de PoliScroll."}</p>` : ""}
         ${authFeedback ? `<p class="ps-auth-feedback is-${authFeedbackKind}" role="alert">${escapeHTML(authFeedback)}</p>` : ""}
         <form class="ps-auth-form" id="auth-form">
           ${isRegister ? `<label>Nombre completo<input name="displayName" type="text" autocomplete="name" required minlength="2" placeholder="Tu nombre" /></label>` : ""}
           <label>Correo electrónico<input name="email" type="email" autocomplete="email" required value="${isConfirm || isForgot ? escapeHTML(pendingEmail) : ""}" placeholder="tu@correo.com" /></label>
           ${isConfirm ? `<label>Código de verificación<input name="code" inputmode="numeric" autocomplete="one-time-code" required minlength="6" placeholder="123456" /></label>` : ""}
-          ${isForgot && !isConfirm ? "" : !isForgot ? `<label>Contraseña<input name="password" type="password" autocomplete="${isRegister ? "new-password" : "current-password"}" required minlength="8" placeholder="Mínimo 8 caracteres" /></label>` : ""}
+          ${isForgot && !isConfirm ? "" : !isForgot ? `<label>Contraseña<input id="auth-password" name="password" type="password" autocomplete="${isRegister ? "new-password" : "current-password"}" required minlength="8" placeholder="${isRegister ? "Crea una contraseña segura" : "Tu contraseña"}" />${isRegister ? `<ul class="ps-password-policy" id="password-policy" aria-label="Requisitos de contraseña"><li data-rule="length">8 caracteres como mínimo</li><li data-rule="uppercase">Una letra mayúscula</li><li data-rule="lowercase">Una letra minúscula</li><li data-rule="number">Un número</li><li data-rule="symbol">Un símbolo</li></ul>` : ""}</label>` : ""}
           ${isForgot && pendingEmail ? `<label>Código<input name="code" inputmode="numeric" required minlength="6" placeholder="Código de correo" /></label><label>Nueva contraseña<input name="newPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres" /></label>` : ""}
-          <button class="ps-auth-submit" type="submit">${isRegister ? "Crear cuenta" : isConfirm ? "Confirmar correo" : isForgot && pendingEmail ? "Guardar contraseña" : isForgot ? "Enviar código" : "Iniciar sesión"} <span aria-hidden="true">↗</span></button>
+          <button class="ps-auth-submit${authBusy ? " is-loading" : ""}" type="submit" ${authBusy ? "disabled" : ""}>${authBusy ? `<span class="ps-auth-spinner" aria-hidden="true"></span>Procesando...` : `${isRegister ? "Crear cuenta" : isConfirm ? "Confirmar correo" : isForgot && pendingEmail ? "Guardar contraseña" : isForgot ? "Enviar código" : "Iniciar sesión"} <span aria-hidden="true">↗</span>`}</button>
         </form>
         <div class="ps-auth-links">
           ${isLogin ? `<button type="button" data-auth-view="register">Crear cuenta de estudiante</button><button type="button" data-auth-view="forgot">Olvidé mi contraseña</button>` : `<button type="button" data-auth-view="login">Volver al acceso</button>`}
@@ -503,6 +504,51 @@ function wireAuth(): void {
   document.querySelector<HTMLFormElement>("#auth-form")?.addEventListener("submit", (event) => {
     void submitAuth(event);
   });
+  document.querySelector<HTMLInputElement>("#auth-password")?.addEventListener("input", (event) => {
+    updatePasswordPolicy((event.currentTarget as HTMLInputElement).value);
+  });
+  updatePasswordPolicy("");
+}
+
+function updatePasswordPolicy(password: string): void {
+  const checks: Record<string, boolean> = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /\d/.test(password),
+    symbol: /[^A-Za-z0-9]/.test(password),
+  };
+  document.querySelectorAll<HTMLElement>("[data-rule]").forEach((rule) => {
+    rule.classList.toggle("is-valid", checks[rule.dataset.rule ?? ""] === true);
+  });
+}
+
+function authErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("UserAlreadyExists") || message.includes("UsernameExists")) return "Ya existe una cuenta con este correo. Intenta iniciar sesión.";
+  if (message.includes("NotAuthorized") || message.includes("Incorrect username or password")) return "El correo o la contraseña no son correctos.";
+  if (message.includes("UserNotFound")) return "No encontramos una cuenta con ese correo.";
+  if (message.includes("CodeMismatch")) return "El código no coincide. Revísalo e inténtalo otra vez.";
+  return "No pudimos completar la operación. Revisa los datos e inténtalo nuevamente.";
+}
+
+function showAuthError(message: string): void {
+  authFeedback = message;
+  authFeedbackKind = "error";
+  const form = document.querySelector<HTMLFormElement>("#auth-form");
+  if (!form) {
+    render();
+    return;
+  }
+  let feedback = document.querySelector<HTMLParagraphElement>(".ps-auth-feedback");
+  if (!feedback) {
+    feedback = document.createElement("p");
+    form.before(feedback);
+  }
+  feedback.className = "ps-auth-feedback is-error";
+  feedback.setAttribute("role", "alert");
+  feedback.textContent = message;
+  feedback.animate([{ opacity: 0, transform: "translateY(-5px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 220, easing: "ease-out" });
 }
 
 async function submitAuth(event: SubmitEvent): Promise<void> {
@@ -510,11 +556,25 @@ async function submitAuth(event: SubmitEvent): Promise<void> {
   const form = event.currentTarget as HTMLFormElement;
   const data = new FormData(form);
   const email = String(data.get("email") ?? "").trim().toLowerCase();
+  const password = String(data.get("password") ?? "");
   try {
     authFeedback = "";
+    authBusy = true;
+    const submitButton = form.querySelector<HTMLButtonElement>(".ps-auth-submit");
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.classList.add("is-loading");
+      submitButton.innerHTML = `<span class="ps-auth-spinner" aria-hidden="true"></span>Procesando...`;
+    }
     if (authView === "register") {
+      const passwordValid = password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
+      if (!passwordValid) {
+        authBusy = false;
+        showAuthError("Completa los requisitos de contraseña indicados para continuar.");
+        return;
+      }
       pendingEmail = (email);
-      const confirmationEmail = await register(email, String(data.get("password") ?? ""), String(data.get("displayName") ?? "").trim());
+      const confirmationEmail = await register(email, password, String(data.get("displayName") ?? "").trim());
       if (confirmationEmail) {
         authView = "confirm";
         authFeedback = "Revisa tu correo para confirmar la cuenta.";
@@ -539,7 +599,7 @@ async function submitAuth(event: SubmitEvent): Promise<void> {
         authFeedbackKind = "success";
       }
     } else {
-      await login(email, String(data.get("password") ?? ""));
+      await login(email, password);
       const session = await getSession();
       if (!session) throw new Error("No se pudo recuperar la sesión.");
       if (selectedLoginRole !== "student" && session.user.role !== selectedLoginRole) {
@@ -551,9 +611,11 @@ async function submitAuth(event: SubmitEvent): Promise<void> {
       return;
     }
   } catch (error) {
-    authFeedback = error instanceof Error ? error.message : "No se pudo completar la operación.";
-    authFeedbackKind = "error";
+    authBusy = false;
+    showAuthError(authErrorMessage(error));
+    return;
   }
+  authBusy = false;
   render();
 }
 
