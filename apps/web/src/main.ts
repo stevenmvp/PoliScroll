@@ -1,4 +1,5 @@
 import "./styles.css";
+import type { EducationalLevel } from "./domain/identity";
 
 interface FeedItem {
   id: string;
@@ -46,8 +47,6 @@ interface ActivityGroup {
   mode: string;
   stages: { title: string; source: string; icon: string }[];
 }
-
-type EducationalLevel = "Primaria" | "Secundaria" | "Universitaria";
 
 interface Question {
   prompt: string;

@@ -5,6 +5,7 @@ node_modules/
 !.env.example
 dist/
 apps/web/dist/
+amplify_outputs.json
 coverage/
 *.log
 .DS_Store
