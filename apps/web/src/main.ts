@@ -1,5 +1,17 @@
 import "./styles.css";
 import type { EducationalLevel } from "./domain/identity";
+import type { AuthSession, UserRole } from "./domain/identity";
+import {
+  beginPasswordReset,
+  confirmRegistration,
+  configureAmplify,
+  finishPasswordReset,
+  getSession,
+  login,
+  logout,
+  register,
+} from "./services/amplify";
+import { ensureUserProfile } from "./services/data";
 
 interface FeedItem {
   id: string;
@@ -312,12 +324,30 @@ let activityFilter = "all";
 let gameLevelFilter: EducationalLevel | "all" = "all";
 let toastTimer = 0;
 const savedItems = new Set<string>();
+let authReady = false;
+let authSession: AuthSession | null = null;
+let authView: "login" | "register" | "confirm" | "forgot" = "login";
+let selectedLoginRole: UserRole = "student";
+let pendingEmail = "";
+let authFeedback = "";
+let authFeedbackKind: "error" | "success" = "error";
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
 }
 
 function render(): void {
+  if (!authReady) {
+    root.innerHTML = `<main class="ps-auth-shell"><div class="ps-auth-card"><span class="ps-auth-mark">P</span><p class="ps-module-kicker">POLISCROLL</p><h1>Conectando tu campus.</h1><p class="ps-auth-copy">Preparando tu sesión segura.</p><span class="ps-auth-loader" aria-label="Cargando"></span></div></main>`;
+    return;
+  }
+
+  if (!authSession) {
+    root.innerHTML = renderAuth();
+    wireAuth();
+    return;
+  }
+
   const selectedModule = modules.find((module) => module.id === selectedModuleId) ?? modules[0];
   root.innerHTML = `
     <div class="ps-app">
@@ -327,7 +357,9 @@ function render(): void {
         </button>
         <div class="ps-topbar-right">
           <span class="ps-campus"><span class="ps-online-dot"></span> Campus conectado</span>
-          ${screen === "module" ? `<button class="ps-back" id="back-to-menu" type="button"><span aria-hidden="true">←</span> Menú principal</button>` : `<span class="ps-user-mark" aria-label="Perfil estudiantil">A</span>`}
+          ${screen === "module" ? `<button class="ps-back" id="back-to-menu" type="button"><span aria-hidden="true">←</span> Menú principal</button>` : ""}
+          <span class="ps-role-badge">${roleLabel(authSession.user.role)}</span>
+          <button class="ps-user-mark" id="sign-out" type="button" aria-label="Cerrar sesión">${initialsForSession()}</button>
         </div>
       </header>
       <main class="ps-main">
@@ -351,8 +383,26 @@ function render(): void {
 
   document.querySelector<HTMLButtonElement>("#go-home")?.addEventListener("click", goHome);
   document.querySelector<HTMLButtonElement>("#back-to-menu")?.addEventListener("click", goHome);
+  document.querySelector<HTMLButtonElement>("#sign-out")?.addEventListener("click", async () => {
+    await logout();
+    authSession = null;
+    screen = "home";
+    render();
+  });
   document.querySelectorAll<HTMLButtonElement>("[data-bottom-module]").forEach((button) => {
     button.addEventListener("click", () => openModule(button.dataset.bottomModule ?? modules[0].id));
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-role-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const actionIndex = Number(button.dataset.roleAction ?? 0);
+      const destinations: Record<UserRole, string[]> = {
+        student: ["actividades", "perfil", "juegos"],
+        teacher: ["actividades", "comunidades", "perfil"],
+        admin: ["perfil", "actividades", "noticias"],
+        super_admin: ["perfil", "actividades", "noticias"],
+      };
+      openModule(destinations[authSession?.user.role ?? "student"][actionIndex] ?? "actividades");
+    });
   });
 
   const chatDialog = document.querySelector<HTMLDialogElement>("#polichat-dialog");
@@ -375,6 +425,131 @@ function render(): void {
   else wireModule(selectedModule);
 }
 
+function roleLabel(role: UserRole): string {
+  return role === "admin" ? "Administrador" : role === "teacher" ? "Docente" : "Estudiante";
+}
+
+function initialsForSession(): string {
+  return authSession?.user.displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "?";
+}
+
+function renderAuth(): string {
+  const isLogin = authView === "login";
+  const isRegister = authView === "register";
+  const isConfirm = authView === "confirm";
+  const isForgot = authView === "forgot";
+  const title = isRegister ? "Crea tu recorrido." : isConfirm ? "Confirma tu correo." : isForgot ? "Recupera tu acceso." : "Entra a PoliScroll.";
+  const description = isRegister
+    ? "Regístrate como estudiante. Los accesos docentes y administrativos son asignados por el equipo de PoliScroll."
+    : isConfirm
+      ? `Enviamos un código a ${escapeHTML(pendingEmail)}.`
+      : isForgot
+        ? "Te enviaremos instrucciones para restablecer tu contraseña."
+        : "Un campus conectado a tu forma de aprender.";
+
+  return `
+    <main class="ps-auth-shell">
+      <section class="ps-auth-card" aria-labelledby="auth-title">
+        <div class="ps-auth-heading"><span class="ps-auth-mark">P</span><span class="ps-auth-overline">POLISCROLL / ACCESO</span></div>
+        <h1 id="auth-title">${title}</h1>
+        <p class="ps-auth-copy">${description}</p>
+        ${isLogin ? `<div class="ps-role-tabs" role="tablist" aria-label="Tipo de acceso">
+          ${(["student", "teacher", "admin"] as UserRole[]).map((role) => `<button class="ps-role-tab${selectedLoginRole === role ? " is-active" : ""}" type="button" data-role="${role}" role="tab" aria-selected="${selectedLoginRole === role}">${roleLabel(role)}</button>`).join("")}
+        </div>` : ""}
+        ${authFeedback ? `<p class="ps-auth-feedback is-${authFeedbackKind}" role="alert">${escapeHTML(authFeedback)}</p>` : ""}
+        <form class="ps-auth-form" id="auth-form">
+          ${isRegister ? `<label>Nombre completo<input name="displayName" type="text" autocomplete="name" required minlength="2" placeholder="Tu nombre" /></label>` : ""}
+          <label>Correo electrónico<input name="email" type="email" autocomplete="email" required value="${isConfirm || isForgot ? escapeHTML(pendingEmail) : ""}" placeholder="tu@correo.com" /></label>
+          ${isConfirm ? `<label>Código de verificación<input name="code" inputmode="numeric" autocomplete="one-time-code" required minlength="6" placeholder="123456" /></label>` : ""}
+          ${isForgot && !isConfirm ? "" : !isForgot ? `<label>Contraseña<input name="password" type="password" autocomplete="${isRegister ? "new-password" : "current-password"}" required minlength="8" placeholder="Mínimo 8 caracteres" /></label>` : ""}
+          ${isForgot && pendingEmail ? `<label>Código<input name="code" inputmode="numeric" required minlength="6" placeholder="Código de correo" /></label><label>Nueva contraseña<input name="newPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres" /></label>` : ""}
+          <button class="ps-auth-submit" type="submit">${isRegister ? "Crear cuenta" : isConfirm ? "Confirmar correo" : isForgot && pendingEmail ? "Guardar contraseña" : isForgot ? "Enviar código" : "Iniciar sesión"} <span aria-hidden="true">↗</span></button>
+        </form>
+        <div class="ps-auth-links">
+          ${isLogin ? `<button type="button" data-auth-view="register">Crear cuenta de estudiante</button><button type="button" data-auth-view="forgot">Olvidé mi contraseña</button>` : `<button type="button" data-auth-view="login">Volver al acceso</button>`}
+        </div>
+      </section>
+    </main>
+  `;
+}
+
+function wireAuth(): void {
+  document.querySelectorAll<HTMLButtonElement>("[data-role]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedLoginRole = (button.dataset.role as UserRole | undefined) ?? "student";
+      authFeedback = "";
+      render();
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-auth-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      authView = (button.dataset.authView as typeof authView | undefined) ?? "login";
+      authFeedback = "";
+      render();
+    });
+  });
+  document.querySelector<HTMLFormElement>("#auth-form")?.addEventListener("submit", (event) => {
+    void submitAuth(event);
+  });
+}
+
+async function submitAuth(event: SubmitEvent): Promise<void> {
+  event.preventDefault();
+  const form = event.currentTarget as HTMLFormElement;
+  const data = new FormData(form);
+  const email = String(data.get("email") ?? "").trim().toLowerCase();
+  try {
+    authFeedback = "";
+    if (authView === "register") {
+      pendingEmail = (email);
+      const confirmationEmail = await register(email, String(data.get("password") ?? ""), String(data.get("displayName") ?? "").trim());
+      if (confirmationEmail) {
+        authView = "confirm";
+        authFeedback = "Revisa tu correo para confirmar la cuenta.";
+        authFeedbackKind = "success";
+      }
+    } else if (authView === "confirm") {
+      await confirmRegistration(email, String(data.get("code") ?? "").trim());
+      authView = "login";
+      authFeedback = "Cuenta confirmada. Ya puedes iniciar sesión.";
+      authFeedbackKind = "success";
+    } else if (authView === "forgot") {
+      if (!pendingEmail) {
+        pendingEmail = email;
+        await beginPasswordReset(email);
+        authFeedback = "Te enviamos un código de recuperación.";
+        authFeedbackKind = "success";
+      } else {
+        await finishPasswordReset(email, String(data.get("code") ?? "").trim(), String(data.get("newPassword") ?? ""));
+        authView = "login";
+        pendingEmail = "";
+        authFeedback = "Contraseña actualizada. Ya puedes entrar.";
+        authFeedbackKind = "success";
+      }
+    } else {
+      await login(email, String(data.get("password") ?? ""));
+      const session = await getSession();
+      if (!session) throw new Error("No se pudo recuperar la sesión.");
+      if (selectedLoginRole !== "student" && session.user.role !== selectedLoginRole) {
+        await logout();
+        throw new Error(`Tu cuenta no tiene acceso de ${roleLabel(selectedLoginRole).toLowerCase()}.`);
+      }
+      authSession = session;
+      render();
+      return;
+    }
+  } catch (error) {
+    authFeedback = error instanceof Error ? error.message : "No se pudo completar la operación.";
+    authFeedbackKind = "error";
+  }
+  render();
+}
+
 function appendChatMessage(container: HTMLDivElement, text: string, className: string): void {
   const message = document.createElement("p");
   message.className = `ps-chat-message ${className}`;
@@ -384,6 +559,7 @@ function appendChatMessage(container: HTMLDivElement, text: string, className: s
 
 function renderHome(): string {
   return `
+    ${renderRoleWorkspace()}
     <section class="ps-deck-stage" aria-label="Menú principal de módulos">
       <div class="ps-deck-scroll" id="module-deck" tabindex="0" aria-label="Desplazamiento vertical entre módulos">
         ${modules.map((module, index) => `
@@ -418,6 +594,36 @@ function renderHome(): string {
       </div>
     </section>
   `;
+}
+
+function renderRoleWorkspace(): string {
+  if (!authSession) return "";
+  const role = authSession.user.role;
+  const workspace = role === "admin"
+    ? {
+      eyebrow: "CENTRO DE ADMINISTRACIÓN",
+      title: "Controla el campus.",
+      description: "Gestiona usuarios, contenidos, permisos y trazabilidad de PoliScroll.",
+      actions: ["Usuarios", "Actividades", "Auditoría"],
+    }
+    : role === "teacher"
+      ? {
+        eyebrow: "ESPACIO DOCENTE",
+        title: "Acompaña cada progreso.",
+        description: "Diseña actividades, revisa resultados y orienta a tus grupos.",
+        actions: ["Mis actividades", "Grupos", "Analítica"],
+      }
+      : {
+        eyebrow: "TU RECORRIDO",
+        title: `Hola, ${escapeHTML(authSession.user.displayName.split(/\s+/)[0] ?? "estudiante")}.`,
+        description: "Continúa tus actividades y descubre nuevos retos adaptados a tu nivel.",
+        actions: ["Continuar actividad", "Mis logros", "Mi progreso"],
+      };
+
+  return `<section class="ps-role-workspace" aria-label="${workspace.eyebrow}">
+    <div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>${workspace.eyebrow}</p><h2>${workspace.title}</h2><p>${workspace.description}</p></div>
+    <div class="ps-role-actions">${workspace.actions.map((action, index) => `<button type="button" class="ps-role-action" data-role-action="${index}"><span>0${index + 1}</span>${action}<b aria-hidden="true">↗</b></button>`).join("")}</div>
+  </section>`;
 }
 
 function renderModule(module: ModuleData): string {
@@ -834,4 +1040,19 @@ function showToast(message: string): void {
   toastTimer = window.setTimeout(() => { toast.hidden = true; }, 2200);
 }
 
-render();
+async function bootstrap(): Promise<void> {
+  try {
+    if (await configureAmplify()) {
+      authSession = await getSession();
+      if (authSession) await ensureUserProfile(authSession);
+    }
+  } catch (error) {
+    console.error("No se pudo inicializar la autenticación de PoliScroll.", error);
+    authFeedback = "El servicio de acceso no está disponible. Inténtalo de nuevo.";
+  } finally {
+    authReady = true;
+    render();
+  }
+}
+
+void bootstrap();

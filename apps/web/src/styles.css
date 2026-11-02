@@ -658,6 +658,40 @@
 .ps-chat-form input:focus { border-color: var(--ps-cyan); }
 .ps-chat-form button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--ps-ink); color: #fff; font-size: 20px; }
 
+.ps-auth-shell { display: grid; min-height: 100vh; place-items: center; padding: 28px 18px; background: radial-gradient(circle at 85% 12%, #dff7fb 0, transparent 34%), linear-gradient(135deg, #f8fcfd 0%, #e8f4f6 100%); }
+.ps-auth-card { width: min(100%, 470px); border: 1px solid #bfd7dc; border-radius: 18px; padding: clamp(26px, 6vw, 52px); background: rgba(255,255,255,.94); box-shadow: 0 24px 70px rgba(15,56,90,.12); }
+.ps-auth-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+.ps-auth-mark { display: grid; place-items: center; width: 42px; height: 42px; border: 2px solid var(--blue); border-radius: 50% 50% 50% 8px; color: var(--blue); font-size: 24px; font-weight: 900; transform: rotate(-9deg); }
+.ps-auth-overline { color: var(--ink-soft); font-size: 10px; font-weight: 900; letter-spacing: .14em; }
+.ps-auth-card h1 { margin-bottom: 12px; font-size: clamp(38px, 7vw, 60px); }
+.ps-auth-copy { margin: 0 0 24px; color: var(--ink-soft); font-size: 14px; line-height: 1.55; }
+.ps-role-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 18px; }
+.ps-role-tab { border: 1px solid var(--line); border-radius: 8px; padding: 9px 5px; background: #fff; color: var(--ink-soft); font-size: 11px; font-weight: 800; }
+.ps-role-tab.is-active { border-color: var(--cyan); background: #eafaff; color: var(--blue); }
+.ps-auth-feedback { border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.45; }
+.ps-auth-feedback.is-error { background: #fff0f0; color: #a52c39; }
+.ps-auth-feedback.is-success { background: #f0f8df; color: #557c0a; }
+.ps-auth-form { display: grid; gap: 14px; }
+.ps-auth-form label { display: grid; gap: 6px; color: var(--blue); font-size: 11px; font-weight: 900; }
+.ps-auth-form input { width: 100%; border: 1px solid #c8dce0; border-radius: 8px; padding: 12px; outline: 0; background: #fbfefe; font-size: 13px; }
+.ps-auth-form input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px #1fb2de22; }
+.ps-auth-submit { border: 1px solid var(--blue); border-radius: 9px; padding: 12px 15px; background: var(--blue); color: #fff; font-size: 13px; font-weight: 900; }
+.ps-auth-submit:hover { background: #174e76; }
+.ps-auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 18px; }
+.ps-auth-links button { border: 0; padding: 0; background: transparent; color: #08799a; font-size: 11px; font-weight: 800; text-decoration: underline; }
+.ps-auth-loader { display: block; width: 22px; height: 22px; margin-top: 22px; border: 3px solid #d5e8eb; border-top-color: var(--cyan); border-radius: 50%; animation: ps-spin .8s linear infinite; }
+.ps-role-badge { border: 1px solid #c7e8ee; border-radius: 14px; padding: 5px 9px; background: #effcff; color: #08799a; font-size: 10px; font-weight: 900; }
+.ps-role-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); gap: 24px; align-items: end; margin: 22px clamp(18px, 5vw, 72px) 0; border: 1px solid #bfd7dc; border-radius: 15px; padding: 22px 24px; background: rgba(255,255,255,.82); box-shadow: 0 8px 0 rgba(15,56,90,.04); }
+.ps-role-workspace h2 { margin: 0 0 7px; color: var(--blue); font-size: clamp(25px, 4vw, 42px); letter-spacing: -.045em; }
+.ps-role-workspace > div:first-child > p:last-child { max-width: 470px; margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.ps-role-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.ps-role-action { display: grid; gap: 10px; min-height: 82px; border: 1px solid #c8dce0; border-radius: 9px; padding: 11px; background: #fff; color: var(--blue); font-size: 11px; font-weight: 900; text-align: left; }
+.ps-role-action:hover { border-color: var(--cyan); background: #effcff; transform: translateY(-2px); }
+.ps-role-action span { color: var(--cyan); font-size: 10px; }
+.ps-role-action b { justify-self: end; color: var(--cyan); font-size: 17px; }
+@keyframes ps-spin { to { transform: rotate(360deg); } }
+@media (max-width: 720px) { .ps-role-workspace { grid-template-columns: 1fr; margin-inline: 18px; } }
+
 .ps-edge-preview { width: min(250px, calc(100% - 48px)); min-height: 42px; border-color: rgba(203, 221, 224, .68); border-radius: 0 0 38px 38px; border-top: 0; padding: 5px 15px 8px; background: rgba(250, 253, 253, .6); box-shadow: 0 4px 12px rgba(29, 67, 76, .045); filter: none; opacity: .66; backdrop-filter: blur(4px); }
 .ps-edge-preview:disabled { opacity: .26; }
 .ps-edge-top { top: 71px; }
