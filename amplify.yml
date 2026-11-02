@@ -5,13 +5,13 @@ applications:
       phases:
         preBuild:
           commands:
-            - cd ../.. && npm ci
-            - cd apps/web && npm ci
+            - cd "$CODEBUILD_SRC_DIR" && npm ci
+            - cd "$CODEBUILD_SRC_DIR/apps/web" && npm ci
         build:
           commands:
-            - cd ../.. && npm run backend:typecheck
-            - cd ../.. && npm exec --yes --package=@aws-amplify/backend-cli@1.10.0 -- ampx pipeline-deploy --branch "$AWS_BRANCH" --app-id "$AWS_APP_ID" --outputs-out-dir apps/web
-            - cd apps/web && npm run build
+            - cd "$CODEBUILD_SRC_DIR" && npm run backend:typecheck
+            - cd "$CODEBUILD_SRC_DIR" && npm exec --yes --package=@aws-amplify/backend-cli@1.10.0 -- ampx pipeline-deploy --branch "$AWS_BRANCH" --app-id "$AWS_APP_ID" --outputs-out-dir "$CODEBUILD_SRC_DIR/apps/web"
+            - cd "$CODEBUILD_SRC_DIR/apps/web" && npm run build
       artifacts:
         baseDirectory: dist
         files:
