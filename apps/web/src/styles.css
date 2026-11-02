@@ -691,13 +691,19 @@
 .ps-role-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); gap: 24px; align-items: end; margin: 22px clamp(18px, 5vw, 72px) 0; border: 1px solid #bfd7dc; border-radius: 15px; padding: 22px 24px; background: rgba(255,255,255,.82); box-shadow: 0 8px 0 rgba(15,56,90,.04); }
 .ps-role-workspace h2 { margin: 0 0 7px; color: var(--blue); font-size: clamp(25px, 4vw, 42px); letter-spacing: -.045em; }
 .ps-role-workspace > div:first-child > p:last-child { max-width: 470px; margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.ps-role-title { display: block; margin-top: 15px; color: var(--cyan); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .ps-role-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .ps-role-action { display: grid; gap: 10px; min-height: 82px; border: 1px solid #c8dce0; border-radius: 9px; padding: 11px; background: #fff; color: var(--blue); font-size: 11px; font-weight: 900; text-align: left; }
 .ps-role-action:hover { border-color: var(--cyan); background: #effcff; transform: translateY(-2px); }
 .ps-role-action span { color: var(--cyan); font-size: 10px; }
 .ps-role-action b { justify-self: end; color: var(--cyan); font-size: 17px; }
+.ps-role-metrics { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 4px; }
+.ps-role-metrics span { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 9px; }
+.ps-role-metrics small { color: var(--ink-soft); font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.ps-role-metrics strong { color: var(--blue); font-size: 24px; }
+.ps-metrics-loading { grid-column: 1 / -1; color: var(--ink-soft); font-size: 11px; }
 @keyframes ps-spin { to { transform: rotate(360deg); } }
-@media (max-width: 720px) { .ps-role-workspace { grid-template-columns: 1fr; margin-inline: 18px; } }
+@media (max-width: 720px) { .ps-role-workspace { grid-template-columns: 1fr; margin-inline: 18px; } .ps-role-metrics { grid-template-columns: repeat(2, 1fr); } }
 
 .ps-edge-preview { width: min(250px, calc(100% - 48px)); min-height: 42px; border-color: rgba(203, 221, 224, .68); border-radius: 0 0 38px 38px; border-top: 0; padding: 5px 15px 8px; background: rgba(250, 253, 253, .6); box-shadow: 0 4px 12px rgba(29, 67, 76, .045); filter: none; opacity: .66; backdrop-filter: blur(4px); }
 .ps-edge-preview:disabled { opacity: .26; }

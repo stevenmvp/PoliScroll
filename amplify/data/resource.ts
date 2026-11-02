@@ -175,6 +175,26 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
 
+  Achievement: a
+    .model({
+      key: a.string().required(),
+      title: a.string().required(),
+      description: a.string(),
+      icon: a.string(),
+      points: a.integer().default(0),
+      active: a.boolean().default(true),
+    })
+    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+
+  UserAchievement: a
+    .model({
+      userId: a.string().required(),
+      achievementId: a.string().required(),
+      earnedAt: a.datetime().required(),
+      sourceActivityId: a.string(),
+    })
+    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+
   AuditLog: a
     .model({
       actorId: a.string().required(),

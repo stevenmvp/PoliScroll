@@ -19,6 +19,7 @@ import {
   finishActivitySession,
   recordActivityEvent,
 } from "./services/data";
+import { dashboardRoleTitle, getDashboardSummary, type DashboardSummary } from "./services/platform";
 
 interface FeedItem {
   id: string;
@@ -338,6 +339,7 @@ let pendingEmail = "";
 let authFeedback = "";
 let authFeedbackKind: "error" | "success" = "error";
 let authBusy = false;
+let dashboardSummary: DashboardSummary | null = null;
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
@@ -689,9 +691,11 @@ function renderRoleWorkspace(): string {
         actions: ["Continuar actividad", "Mis logros", "Mi progreso"],
       };
 
+  const summary = dashboardSummary;
   return `<section class="ps-role-workspace" aria-label="${workspace.eyebrow}">
-    <div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>${workspace.eyebrow}</p><h2>${workspace.title}</h2><p>${workspace.description}</p></div>
+    <div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>${workspace.eyebrow}</p><h2>${workspace.title}</h2><p>${workspace.description}</p><strong class="ps-role-title">${dashboardRoleTitle(role)}</strong></div>
     <div class="ps-role-actions">${workspace.actions.map((action, index) => `<button type="button" class="ps-role-action" data-role-action="${index}"><span>0${index + 1}</span>${action}<b aria-hidden="true">↗</b></button>`).join("")}</div>
+    <div class="ps-role-metrics" aria-label="Resumen de datos">${summary ? [summary.primaryLabel, summary.secondaryLabel, summary.tertiaryLabel, summary.pendingLabel].map((label, index) => `<span><small>${label}</small><strong>${[summary.primaryValue, summary.secondaryValue, summary.tertiaryValue, summary.pendingValue][index]}</strong></span>`).join("") : `<span class="ps-metrics-loading">Sincronizando datos del campus…</span>`}</div>
   </section>`;
 }
 
@@ -1145,7 +1149,10 @@ async function bootstrap(): Promise<void> {
   try {
     if (await configureAmplify()) {
       authSession = await getSession();
-      if (authSession) await ensureUserProfile(authSession);
+      if (authSession) {
+        await ensureUserProfile(authSession);
+        dashboardSummary = await getDashboardSummary(authSession);
+      }
     }
   } catch (error) {
     console.error("No se pudo inicializar la autenticación de PoliScroll.", error);
