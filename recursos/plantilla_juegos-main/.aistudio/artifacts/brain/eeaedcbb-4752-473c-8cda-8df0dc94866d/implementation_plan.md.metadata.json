@@ -1,0 +1,6 @@
+{
+  "summary": "Plan de arquitectura y migración completa de Vortex Arcade (16 minijuegos, Tutor Socrático con Gemini, Súper Módulo, Motor de Verificación de Solubilidad y Síntesis de Audio) hacia el repositorio PoliScroll en React + Vite + Tailwind CSS. Incluye estrategia de empaquetado modular, script de exportación automatizado, guía de sincronización Git e integración limpia con la interfaz de PoliScroll.",
+  "updatedAt": "2026-11-02T23:03:33.180029983Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

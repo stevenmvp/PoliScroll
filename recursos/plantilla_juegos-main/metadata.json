@@ -1,0 +1,6 @@
+{
+  "name": "Vortex Arcade",
+  "description": "Plataforma contemporánea de minijuegos 2D y 3D en TypeScript con modo rotatorio Frenesí de 10s, salón Pachinko/Gachapón, síntesis de audio interactiva con Tone.js y leaderboard global.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
