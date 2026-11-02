@@ -23,12 +23,14 @@ interface WorkoutRunnerProps {
   totalGames: number;
   onExit: () => void;
   onOpenLeaderboard: () => void;
+  onGameResult?: (game: GameDefinition, result: GameResult) => void;
 }
 
 export const WorkoutRunner: React.FC<WorkoutRunnerProps> = ({
   totalGames,
   onExit,
   onOpenLeaderboard,
+  onGameResult,
 }) => {
   const [config, setConfig] = useState(() => arcadeConfigStore.getConfig());
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -77,6 +79,7 @@ export const WorkoutRunner: React.FC<WorkoutRunnerProps> = ({
   }, [config.metronomeTier, config.metronomeAudioEnabled, isWorkoutCompleted, isTransitioning]);
 
   const handleGameEnd = (result: GameResult) => {
+    onGameResult?.(currentGame, result);
     const newScore = totalScore + result.score;
     const newMarbles = totalMarbles + result.marblesEarned;
     setTotalScore(newScore);

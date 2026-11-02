@@ -328,7 +328,6 @@ let selectedModuleId = modules[0].id;
 let activeDeckIndex = 0;
 let searchQuery = "";
 let activityFilter = "all";
-let gameLevelFilter: EducationalLevel | "all" = "all";
 let toastTimer = 0;
 const savedItems = new Set<string>();
 let authReady = false;
@@ -753,10 +752,6 @@ function wireModule(module: ModuleData): void {
     activityFilter = (event.currentTarget as HTMLSelectElement).value;
     renderFeedItems(module);
   });
-  document.querySelector<HTMLSelectElement>("#game-level-filter")?.addEventListener("change", (event) => {
-    gameLevelFilter = (event.currentTarget as HTMLSelectElement).value as EducationalLevel | "all";
-    renderFeedItems(module);
-  });
   document.querySelector<HTMLInputElement>("#module-search")?.addEventListener("input", (event) => {
     searchQuery = (event.currentTarget as HTMLInputElement).value;
     renderFeedItems(module);
@@ -1066,7 +1061,6 @@ function openModule(moduleId: string): void {
   selectedModuleId = modules.some((module) => module.id === moduleId) ? moduleId : modules[0].id;
   searchQuery = "";
   activityFilter = "all";
-  gameLevelFilter = "all";
   screen = "module";
   render();
 }

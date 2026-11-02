@@ -10,8 +10,13 @@ import { ThemeCustomizerModal } from './components/ThemeCustomizerModal';
 import { SuperGameEditorModal } from './components/SuperGameEditorModal';
 import { WorkoutRunner } from './components/WorkoutRunner';
 import { type GameDefinition } from './types/game';
+import type { GameResult } from './types/game';
 
-export default function App() {
+interface ArcadeModuleProps {
+  onGameResult?: (game: GameDefinition, result: GameResult) => void;
+}
+
+export default function App({ onGameResult }: ArcadeModuleProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('catalog');
   const [activePlayingGame, setActivePlayingGame] = useState<GameDefinition | null>(null);
   const [activeWorkoutCount, setActiveWorkoutCount] = useState<number | null>(null);
@@ -59,6 +64,7 @@ export default function App() {
             <WorkoutRunner
               totalGames={activeWorkoutCount}
               onExit={handleBackToCatalog}
+              onGameResult={onGameResult}
               onOpenLeaderboard={() => {
                 setActiveWorkoutCount(null);
                 setActiveTab('leaderboard');
@@ -69,6 +75,7 @@ export default function App() {
               game={activePlayingGame}
               onBack={handleBackToCatalog}
               onOpenAcademicDrawer={() => setIsAcademicDrawerOpen(true)}
+              onGameResult={onGameResult}
             />
           ) : (
             <>

@@ -22,12 +22,14 @@ interface ActiveGamePlayerProps {
   game: GameDefinition;
   onBack: () => void;
   onOpenAcademicDrawer: () => void;
+  onGameResult?: (game: GameDefinition, result: GameResult) => void;
 }
 
 export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
   game,
   onBack,
   onOpenAcademicDrawer,
+  onGameResult,
 }) => {
   const [sessionKey, setSessionKey] = useState(1);
   const [currentScore, setCurrentScore] = useState(0);
@@ -107,6 +109,7 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
     };
 
     setLastResult(boostedResult);
+    onGameResult?.(game, boostedResult);
     progressionStore.recordGameScore(game.id, finalScore);
     progressionStore.addMarbles(finalMarbles);
     soundManager.playHit();
