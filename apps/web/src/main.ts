@@ -1165,7 +1165,7 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
 function showGameDialog(group: ActivityGroup): void {
   const engineIds = ["memory", "odd", "timing", "sequence", "maze", "hanoi"];
   const stages = group.stages.map((stage, index) => ({ ...stage, id: engineIds[index] }));
-  root.insertAdjacentHTML("beforeend", `<dialog class="ps-game-dialog ps-activity-dialog" id="game-dialog" aria-labelledby="game-title"><div class="ps-activity-intro" id="activity-intro"><span class="ps-intro-mark">P</span><strong>PoliScroll</strong><p>${escapeHTML(group.title)}</p><b id="intro-countdown">3</b><small>Comencemos</small></div><div class="ps-activity-time-line"><i id="game-perimeter"></i></div><div class="ps-game-shell"><div class="ps-activity-top"><div><small>ACTIVIDAD INTERACTIVA</small><h2 id="game-title">${escapeHTML(group.title)}</h2></div><strong id="activity-score">0</strong></div><p class="ps-game-description">Completa los seis minijuegos. El recorrido avanzará automáticamente al superar cada actividad.</p><div class="ps-activity-hud"><span><small>ACTIVIDAD</small><strong id="activity-count">1 / 6</strong></span><span><small>TIEMPO</small><strong id="game-countdown">90s</strong></span></div><div class="ps-activity-scroll" id="game-stage">${stages.map((stage, index) => `<section class="ps-activity-stage${index === 0 ? " is-active" : ""}" data-stage="${index}"><div class="ps-activity-stage-title"><span>${stage.icon}</span><div><small>JUEGO ${index + 1} · ${stage.source}</small><h3>${stage.title}</h3></div></div><div class="ps-mechanic-board" id="board-${stage.id}"></div></section>`).join("")}<section class="ps-activity-stage ps-activity-finish" id="activity-finish"></section></div><audio id="game-music" preload="metadata" loop src="/audio/poliscroll-planning.mp3"></audio></div></dialog>`);
+  root.insertAdjacentHTML("beforeend", `<dialog class="ps-game-dialog ps-activity-dialog" id="game-dialog" aria-labelledby="game-title"><div class="ps-activity-intro" id="activity-intro"><span class="ps-intro-mark">P</span><strong>PoliScroll</strong><p>${escapeHTML(group.title)}</p><b id="intro-countdown">3</b><small>Comencemos</small></div><div class="ps-activity-time-line"><i id="game-perimeter"></i></div><div class="ps-game-shell"><div class="ps-activity-top"><div><small>ACTIVIDAD INTERACTIVA</small><h2 id="game-title">${escapeHTML(group.title)}</h2></div><strong id="activity-score">0</strong></div><p class="ps-game-description">Completa las ${stages.length} etapas. El recorrido avanzará automáticamente al superar cada actividad.</p><div class="ps-activity-hud"><span><small>ACTIVIDAD</small><strong id="activity-count">1 / ${stages.length}</strong></span><span><small>TIEMPO</small><strong id="game-countdown">90s</strong></span></div><div class="ps-activity-scroll" id="game-stage">${stages.map((stage, index) => `<section class="ps-activity-stage${index === 0 ? " is-active" : ""}" data-stage="${index}"><div class="ps-activity-stage-title"><span>${stage.icon}</span><div><small>JUEGO ${index + 1} · ${stage.source}</small><h3>${stage.title}</h3></div></div><div class="ps-mechanic-board" id="board-${stage.id}"></div></section>`).join("")}<section class="ps-activity-stage ps-activity-finish" id="activity-finish"></section></div><audio id="game-music" preload="metadata" loop src="/audio/poliscroll-planning.mp3"></audio></div></dialog>`);
   const dialog = document.querySelector<HTMLDialogElement>("#game-dialog");
   const scroll = document.querySelector<HTMLDivElement>("#game-stage");
   const scoreElement = document.querySelector<HTMLElement>("#activity-score");
@@ -1184,7 +1184,7 @@ function showGameDialog(group: ActivityGroup): void {
   let timerFrame = 0;
   let activitySessionId: string | null = null;
   let traceWarning = false;
-  const updateHud = (): void => { scoreElement.textContent = String(score); countElement.textContent = `${Math.min(completed + 1, 6)} / 6`; };
+  const updateHud = (): void => { scoreElement.textContent = String(score); countElement.textContent = `${Math.min(completed + 1, stages.length)} / ${stages.length}`; };
   const trace = (eventType: string, stage?: number, payload?: Record<string, unknown>): void => {
     if (!activitySessionId) return;
     void recordActivityEvent({
@@ -1215,7 +1215,7 @@ function showGameDialog(group: ActivityGroup): void {
     trace(completed === stages.length ? "completed" : "time_expired", undefined, { completedStages: completed });
     const finishStage = document.querySelector<HTMLElement>("#activity-finish");
     if (!finishStage) return;
-    finishStage.innerHTML = `<div class="ps-game-result"><span class="ps-game-result-icon">★</span><p class="ps-eyebrow">Actividad completada</p><h3>${score} puntos</h3><div class="ps-game-summary"><span><strong>${completed}/6</strong> juegos superados</span><span><strong>${used}s</strong> tiempo usado</span><span><strong>${score >= 500 ? "Excelente" : "En progreso"}</strong> desempeño</span></div><p>${score >= 500 ? "Excelente gestión de tiempo, memoria, precisión y estrategia." : "Finalizaste el recorrido. Repite la actividad para mejorar tu puntuación."}</p><button type="button" class="ps-create-button" data-close-game>Volver a juegos <span>↗</span></button></div>`;
+    finishStage.innerHTML = `<div class="ps-game-result"><span class="ps-game-result-icon">★</span><p class="ps-eyebrow">Actividad completada</p><h3>${score} puntos</h3><div class="ps-game-summary"><span><strong>${completed}/${stages.length}</strong> juegos superados</span><span><strong>${used}s</strong> tiempo usado</span><span><strong>${score >= 500 ? "Excelente" : "En progreso"}</strong> desempeño</span></div><p>${score >= 500 ? "Excelente gestión de tiempo, memoria, precisión y estrategia." : "Finalizaste el recorrido. Repite la actividad para mejorar tu puntuación."}</p><button type="button" class="ps-create-button" data-close-game>Volver a juegos <span>↗</span></button></div>`;
     finishStage.querySelector<HTMLButtonElement>("[data-close-game]")?.addEventListener("click", () => dialog.close());
     finishStage.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -1228,7 +1228,7 @@ function showGameDialog(group: ActivityGroup): void {
     correctSound.play().catch(() => undefined);
     document.querySelector<HTMLElement>(`[data-stage="${index}"]`)?.classList.add("is-complete");
     updateHud();
-    if (completed === 6) { finish(); return; }
+    if (completed === stages.length) { finish(); return; }
     const next = document.querySelector<HTMLElement>(`[data-stage="${completed}"]`);
     next?.classList.add("is-active");
     window.setTimeout(() => next?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
