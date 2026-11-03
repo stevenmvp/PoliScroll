@@ -707,6 +707,12 @@
 .ps-auth-loader { display: block; width: 22px; height: 22px; margin-top: 22px; border: 3px solid #d5e8eb; border-top-color: var(--cyan); border-radius: 50%; animation: ps-spin .8s linear infinite; }
 .ps-role-badge { border: 1px solid #c7e8ee; border-radius: 14px; padding: 5px 9px; background: #effcff; color: #08799a; font-size: 10px; font-weight: 900; }
 .ps-role-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); gap: 16px 24px; align-items: center; flex: 0 0 auto; margin: 0 0 14px; border: 1px solid #bfd7dc; border-radius: 15px; padding: 14px 18px; background: rgba(255,255,255,.82); box-shadow: 0 8px 0 rgba(15,56,90,.04); transition: padding .22s ease, margin .22s ease; }
+.ps-role-admin { border-color: #d7c4e7; background: linear-gradient(120deg, #fff 0%, #fbf7ff 100%); }
+.ps-role-admin .ps-role-title, .ps-role-admin .ps-role-action span, .ps-role-admin .ps-role-action b { color: #76539b; }
+.ps-role-admin .ps-role-action:hover { border-color: #a884c7; background: #faf4ff; }
+.ps-role-teacher { border-color: #c4d9bd; background: linear-gradient(120deg, #fff 0%, #f7fbf2 100%); }
+.ps-role-teacher .ps-role-title, .ps-role-teacher .ps-role-action span, .ps-role-teacher .ps-role-action b { color: #5d8a43; }
+.ps-role-teacher .ps-role-action:hover { border-color: #95bb7e; background: #f3faee; }
 .ps-role-workspace h2 { margin: 0 0 5px; color: var(--blue); font-size: clamp(25px, 3.2vw, 36px); letter-spacing: -.045em; }
 .ps-role-copy > p { max-width: 470px; margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
 .ps-role-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
