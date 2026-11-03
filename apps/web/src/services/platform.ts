@@ -231,6 +231,12 @@ export async function enrollInCourse(courseId: string, userId: string): Promise<
   if (result.errors?.length) throw new Error("No se pudo registrar la inscripción al curso.");
 }
 
+export async function listCourseEnrollments(): Promise<Schema["CourseEnrollment"]["type"][]> {
+  const result = await client.models.CourseEnrollment.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar las inscripciones.");
+  return result.data;
+}
+
 export async function listTutoringOffers(): Promise<Schema["TutoringOffer"]["type"][]> {
   const result = await client.models.TutoringOffer.list({ filter: { status: { eq: "active" } }, limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar las tutorías.");
@@ -260,6 +266,20 @@ export async function bookTutoring(input: {
     createdAt: new Date().toISOString(),
   });
   if (result.errors?.length) throw new Error("No se pudo solicitar la tutoría.");
+}
+
+export async function listTutoringBookings(): Promise<Schema["TutoringBooking"]["type"][]> {
+  const result = await client.models.TutoringBooking.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar las solicitudes de tutoría.");
+  return result.data;
+}
+
+export async function updateTutoringBookingStatus(
+  id: string,
+  status: "requested" | "confirmed" | "cancelled" | "completed",
+): Promise<void> {
+  const result = await client.models.TutoringBooking.update({ id, status });
+  if (result.errors?.length) throw new Error("No se pudo actualizar el estado de la tutoría.");
 }
 
 export async function findStudyGroupByCode(code: string): Promise<Schema["StudyGroup"]["type"] | null> {

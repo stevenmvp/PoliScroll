@@ -36,6 +36,7 @@ import {
   enrollInCourse,
   listCampusEvents,
   listCourses,
+  listCourseEnrollments,
   listAuditLogs,
   listActivitySessions,
   listGradeRecords,
@@ -43,6 +44,8 @@ import {
   listNotifications,
   listStudyGroups,
   listTutoringOffers,
+  listTutoringBookings,
+  updateTutoringBookingStatus,
   listUserProfiles,
   markChatRead,
   sendChatMessage,
@@ -761,7 +764,8 @@ function renderModule(module: ModuleData): string {
 
   function renderCoursesModule(module: ModuleData): string {
     const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="course-publisher"><strong>Publicar curso</strong><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option selected>Universitaria</option></select></label><label>Modalidad<select name="modality"><option value="Presencial">Presencial</option><option value="Virtual">Virtual</option><option value="Hibrido">Híbrido</option></select></label><label>Duración (semanas)<input name="durationWeeks" type="number" min="1" max="52" value="4" required /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar curso <span>↗</span></button></form>` : "";
-    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Aprendizaje / Cursos</p><h1 id="module-title">Rutas de aprendizaje.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Cursos publicados</span><strong id="course-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="courses-list"><p class="ps-empty-state">Cargando cursos publicados…</p></div><p class="ps-management-feedback" id="courses-feedback" role="status"></p></section>`;
+    const enrollmentPanel = authSession?.user.role !== "student" ? `<section class="ps-management-panel ps-course-enrollments"><div class="ps-management-form-heading"><strong>Estudiantes inscritos</strong><span>Seguimiento de matrícula</span></div><div class="ps-management-list" id="course-enrollment-list"><p class="ps-empty-state">Cargando inscripciones…</p></div></section>` : "";
+    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Aprendizaje / Cursos</p><h1 id="module-title">Rutas de aprendizaje.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Cursos publicados</span><strong id="course-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="courses-list"><p class="ps-empty-state">Cargando cursos publicados…</p></div>${enrollmentPanel}<p class="ps-management-feedback" id="courses-feedback" role="status"></p></section>`;
   }
 
   function renderActivitiesModule(module: ModuleData): string {
@@ -770,7 +774,8 @@ function renderModule(module: ModuleData): string {
 
   function renderTutoringModule(module: ModuleData): string {
     const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="tutoring-publisher"><strong>Publicar disponibilidad</strong><div class="ps-management-grid"><label>Área o materia<input name="subject" required maxlength="100" /></label><label>Modalidad<select name="modality"><option value="Presencial">Presencial</option><option value="Virtual">Virtual</option><option value="Hibrido">Híbrido</option></select></label><label>Disponibilidad<input name="availability" required maxlength="120" placeholder="Mar y jue 14:00–16:00" /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar tutoría <span>↗</span></button></form>` : "";
-    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Acompañamiento / Tutorías</p><h1 id="module-title">Agenda una tutoría.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Áreas activas</span><strong id="tutoring-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="tutoring-list"><p class="ps-empty-state">Cargando tutores disponibles…</p></div><p class="ps-management-feedback" id="tutoring-feedback" role="status"></p></section>`;
+    const bookingPanel = authSession?.user.role !== "student" ? `<section class="ps-management-panel ps-tutoring-bookings"><div class="ps-management-form-heading"><strong>Solicitudes recibidas</strong><span>Confirma o reprograma el acompañamiento</span></div><div class="ps-management-list" id="tutoring-bookings-list"><p class="ps-empty-state">Cargando solicitudes…</p></div></section>` : "";
+    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Acompañamiento / Tutorías</p><h1 id="module-title">Agenda una tutoría.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Áreas activas</span><strong id="tutoring-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="tutoring-list"><p class="ps-empty-state">Cargando tutores disponibles…</p></div>${bookingPanel}<p class="ps-management-feedback" id="tutoring-feedback" role="status"></p></section>`;
   }
   if (module.id === "comunidades" && authSession && authSession.user.role !== "student") {
     return renderManagementModule("groups", "Grupos de estudio", "Crea grupos, organiza cohortes y acompaña el trabajo de tus estudiantes.");
@@ -985,10 +990,15 @@ function wireCoursesModule(module: ModuleData): void {
       durationWeeks: Number(values.get("durationWeeks")),
     }).then(() => { feedback.textContent = "Curso publicado correctamente."; render(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar el curso."; });
   });
-  void listCourses().then((courses) => {
+  void Promise.all([listCourses(), listCourseEnrollments()]).then(([courses, enrollments]) => {
     count.textContent = String(courses.length);
+    const enrolledCourseIds = new Set(enrollments.filter((enrollment) => enrollment.userId === authSession!.user.id && enrollment.status === "active").map((enrollment) => enrollment.courseId));
     list.innerHTML = courses.length
-      ? courses.map((course) => `<article class="ps-data-card"><span class="ps-feed-tag">${course.educationalLevel ?? "Campus"} · ${course.modality ?? "Flexible"}</span><h2>${escapeHTML(course.title)}</h2><p>${escapeHTML(course.description)}</p><small>${course.durationWeeks ?? "—"} semanas · Cupo ${course.capacity ?? "abierto"}</small><button class="ps-create-button" type="button" data-enroll-course="${course.id}">Inscribirme <span>↗</span></button></article>`).join("")
+      ? courses.map((course) => {
+        const enrolled = enrolledCourseIds.has(course.id);
+        const action = authSession?.user.role === "student" ? `<button class="ps-create-button" type="button" data-enroll-course="${course.id}"${enrolled ? " disabled" : ""}>${enrolled ? "Inscrito ✓" : "Inscribirme ↗"}</button>` : "";
+        return `<article class="ps-data-card"><span class="ps-feed-tag">${course.educationalLevel ?? "Campus"} · ${course.modality ?? "Flexible"}</span><h2>${escapeHTML(course.title)}</h2><p>${escapeHTML(course.description)}</p><small>${course.durationWeeks ?? "—"} semanas · Cupo ${course.capacity ?? "abierto"}</small>${action}</article>`;
+      }).join("")
       : `<div class="ps-empty-state ps-data-empty"><strong>No hay cursos publicados todavía.</strong><span>Un docente puede publicar la primera ruta desde su espacio.</span>${module.items.slice(0, 3).map((item) => `<article class="ps-data-card ps-data-card-muted"><span class="ps-feed-tag">${escapeHTML(item.tag)}</span><h2>${escapeHTML(item.title)}</h2><p>${escapeHTML(item.description)}</p><small>${escapeHTML(item.meta)}</small></article>`).join("")}</div>`;
     list.querySelectorAll<HTMLButtonElement>("[data-enroll-course]").forEach((button) => button.addEventListener("click", () => {
       button.disabled = true;
@@ -1002,6 +1012,12 @@ function wireCoursesModule(module: ModuleData): void {
         feedback.textContent = error instanceof Error ? error.message : "No se pudo completar la inscripción.";
       });
     }));
+    const enrollmentList = document.querySelector<HTMLDivElement>("#course-enrollment-list");
+    if (enrollmentList) {
+      enrollmentList.innerHTML = enrollments.length
+        ? enrollments.map((enrollment) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(enrollment.status ?? "active")}</span><h2>${escapeHTML(enrollment.courseId)}</h2><p>Estudiante: ${escapeHTML(enrollment.userId)}</p></div><time>${new Date(enrollment.enrolledAt).toLocaleDateString("es-CO")}</time></article>`).join("")
+        : `<p class="ps-empty-state">Todavía no hay estudiantes inscritos.</p>`;
+    }
   }).catch((error: unknown) => {
     list.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudieron cargar los cursos.")}</p>`;
   });
@@ -1043,12 +1059,18 @@ function wireTutoringModule(): void {
     count.textContent = String(offers.length);
     list.innerHTML = offers.length
       ? offers.map((offer) => `<article class="ps-data-card"><span class="ps-feed-tag">${escapeHTML(offer.modality ?? "Flexible")}</span><h2>${escapeHTML(offer.subject)}</h2><p>${escapeHTML(offer.description)}</p><small>Disponibilidad: ${escapeHTML(offer.availability)}</small><form class="ps-tutoring-form" data-book-offer="${offer.id}"><label>Fecha y hora<input name="scheduledAt" type="datetime-local" required /></label><label>Nota opcional<textarea name="notes" maxlength="300" placeholder="¿En qué necesitas apoyo?"></textarea></label><button class="ps-create-button" type="submit">Solicitar tutoría <span>↗</span></button></form></article>`).join("")
-      : `<p class="ps-empty-state">No hay ofertas activas. Un docente puede publicar una tutoría desde su espacio.</p>`;
+      : (modules.find((module) => module.id === "tutorias")?.items ?? []).map((item) => `<article class="ps-data-card ps-data-card-muted"><span class="ps-feed-tag">${escapeHTML(item.tag)} · Demo</span><h2>${escapeHTML(item.title)}</h2><p>${escapeHTML(item.description)}</p><small>${escapeHTML(item.meta)}</small><form class="ps-tutoring-form" data-book-offer="demo-${item.id}"><label>Fecha y hora<input name="scheduledAt" type="datetime-local" required /></label><label>Nota opcional<textarea name="notes" maxlength="300" placeholder="¿En qué necesitas apoyo?"></textarea></label><button class="ps-create-button" type="submit">Simular solicitud <span>↗</span></button></form></article>`).join("");
     list.querySelectorAll<HTMLFormElement>("[data-book-offer]").forEach((form) => form.addEventListener("submit", (event) => {
       event.preventDefault();
       const data = new FormData(form);
       const button = form.querySelector<HTMLButtonElement>("button");
       if (button) { button.disabled = true; button.textContent = "Solicitando…"; }
+      if (form.dataset.bookOffer?.startsWith("demo-")) {
+        feedback.textContent = "Solicitud simulada. Publica una oferta desde el espacio docente para activar reservas persistentes.";
+        form.reset();
+        if (button) { button.disabled = false; button.textContent = "Simular solicitud ↗"; }
+        return;
+      }
       void bookTutoring({
         offerId: form.dataset.bookOffer ?? "",
         studentId: authSession!.user.id,
@@ -1063,6 +1085,29 @@ function wireTutoringModule(): void {
         if (button) { button.disabled = false; button.textContent = "Solicitar tutoría ↗"; }
       });
     }));
+    const bookings = document.querySelector<HTMLDivElement>("#tutoring-bookings-list");
+    if (bookings && authSession?.user.role !== "student") {
+      void listTutoringBookings().then((items) => {
+        bookings.innerHTML = items.length
+          ? items.map((booking) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(booking.status ?? "requested")}</span><h2>${new Date(booking.scheduledAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}</h2><p>Estudiante: ${escapeHTML(booking.studentId)}${booking.notes ? ` · ${escapeHTML(booking.notes)}` : ""}</p></div><div class="ps-inline-actions"><button class="ps-create-button" type="button" data-booking-status="confirmed" data-booking-id="${booking.id}">Confirmar</button><button class="ps-secondary-button" type="button" data-booking-status="cancelled" data-booking-id="${booking.id}">Cancelar</button></div></article>`).join("")
+          : `<p class="ps-empty-state">No hay solicitudes pendientes.</p>`;
+        bookings.querySelectorAll<HTMLButtonElement>("[data-booking-status]").forEach((button) => button.addEventListener("click", () => {
+          const bookingId = button.dataset.bookingId;
+          const status = button.dataset.bookingStatus as "confirmed" | "cancelled";
+          if (!bookingId) return;
+          button.disabled = true;
+          void updateTutoringBookingStatus(bookingId, status).then(() => {
+            feedback.textContent = status === "confirmed" ? "Tutoría confirmada." : "Solicitud cancelada.";
+            render();
+          }).catch((error: unknown) => {
+            button.disabled = false;
+            feedback.textContent = error instanceof Error ? error.message : "No se pudo actualizar la solicitud.";
+          });
+        }));
+      }).catch((error: unknown) => {
+        bookings.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudieron cargar las solicitudes.")}</p>`;
+      });
+    }
   }).catch((error: unknown) => {
     list.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudieron cargar las tutorías.")}</p>`;
   });

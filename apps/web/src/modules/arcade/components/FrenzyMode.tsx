@@ -33,7 +33,7 @@ export const FrenzyMode: React.FC<FrenzyModeProps> = ({ onExit, onOpenLeaderboar
 
   // Pick random enabled game
   const pickNextGame = useCallback((currentId?: string): GameDefinition => {
-    const all = getAllGames().filter((g) => g.id !== 'pachinko-drop' && arcadeConfigStore.isGameEnabled(g.id));
+    const all = getAllGames().filter((g) => g.dimension === '2d' && g.id !== 'pachinko-drop' && arcadeConfigStore.isGameEnabled(g.id));
     const pool = all.length > 1 ? all.filter((g) => g.id !== currentId) : all;
     return pool[Math.floor(Math.random() * pool.length)] || all[0];
   }, []);
