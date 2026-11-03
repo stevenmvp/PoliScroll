@@ -123,6 +123,39 @@ export async function updateSupportTicket(input: {
   if (result.errors?.length) throw new Error("No se pudo actualizar el ticket.");
 }
 
+export async function createTeacherApplication(input: {
+  applicantId: string;
+  applicantEmail: string;
+  applicantName: string;
+  institution?: string;
+  academicProgram?: string;
+  experience?: string;
+}): Promise<void> {
+  const result = await client.models.TeacherApplication.create({
+    ...input,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  if (result.errors?.length) throw new Error("No se pudo enviar la solicitud docente.");
+}
+
+export async function listTeacherApplications(): Promise<Schema["TeacherApplication"]["type"][]> {
+  const result = await client.models.TeacherApplication.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar las solicitudes docentes.");
+  return result.data;
+}
+
+export async function updateTeacherApplicationStatus(id: string, status: "pending" | "approved" | "rejected", reviewerId: string): Promise<void> {
+  const result = await client.models.TeacherApplication.update({
+    id,
+    status,
+    reviewerId,
+    updatedAt: new Date().toISOString(),
+  });
+  if (result.errors?.length) throw new Error("No se pudo actualizar la solicitud docente.");
+}
+
 export async function listActivitySessions(): Promise<Schema["ActivitySession"]["type"][]> {
   const result = await client.models.ActivitySession.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar las sesiones.");

@@ -299,6 +299,22 @@ const schema = a.schema({
       allow.groups(["admin", "teacher"]),
     ]),
 
+  TeacherApplication: a
+    .model({
+      applicantId: a.string().required(),
+      applicantEmail: a.string().required(),
+      applicantName: a.string().required(),
+      institution: a.string(),
+      academicProgram: a.string(),
+      experience: a.string(),
+      status: a.enum(["pending", "approved", "rejected"]),
+      reviewerId: a.string(),
+      reviewNotes: a.string(),
+      createdAt: a.datetime().required(),
+      updatedAt: a.datetime().required(),
+    })
+    .authorization((allow) => [allow.owner(), allow.groups(["admin"])]),
+
   ContentVersion: a
     .model({
       entityType: a.string().required(),

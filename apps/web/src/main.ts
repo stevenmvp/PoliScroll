@@ -29,6 +29,7 @@ import {
   createGradeRecord,
   createNewsArticle,
   createStudyGroup,
+  createTeacherApplication,
   updateStudyGroupStatus,
   dashboardRoleTitle,
   getDashboardSummary,
@@ -41,6 +42,7 @@ import {
   listCourseEnrollments,
   listAuditLogs,
   listSupportTickets,
+  listTeacherApplications,
   listActivitySessions,
   listGradeRecords,
   listNewsArticles,
@@ -54,6 +56,7 @@ import {
   deleteUserProfile,
   archiveNewsArticle,
   updateSupportTicket,
+  updateTeacherApplicationStatus,
   listArcadeGameConfigs,
   upsertArcadeGameConfig,
   markChatRead,
@@ -374,6 +377,7 @@ let adminPreviewRole: "admin" | "teacher" | "student" | null = null;
 let authView: "login" | "register" | "confirm" | "forgot" = "login";
 let selectedLoginRole: UserRole = "student";
 let pendingEmail = "";
+let pendingTeacherApplication: { institution: string; academicProgram: string; experience: string } | null = null;
 let authFeedback = "";
 let authFeedbackKind: "error" | "success" = "error";
 let authBusy = false;
@@ -563,7 +567,9 @@ function renderAuth(): string {
   const isForgot = authView === "forgot";
   const title = isRegister ? "Crea tu recorrido." : isConfirm ? "Confirma tu correo." : isForgot ? "Recupera tu acceso." : "Entra a PoliScroll.";
   const description = isRegister
-    ? "Regístrate como estudiante. Los accesos docentes y administrativos son asignados por el equipo de PoliScroll."
+    ? selectedLoginRole === "teacher"
+      ? "Crea tu cuenta y envía una solicitud docente. El equipo académico revisará tus datos antes de habilitar el acceso."
+      : "Crea tu cuenta de estudiante y comienza tu recorrido académico."
     : isConfirm
       ? `Enviamos un código a ${escapeHTML(pendingEmail)}.`
       : isForgot
@@ -576,12 +582,13 @@ function renderAuth(): string {
         <div class="ps-auth-heading"><span class="ps-auth-mark">P</span><span class="ps-auth-overline">POLISCROLL / ACCESO</span></div>
         <h1 id="auth-title">${title}</h1>
         <p class="ps-auth-copy">${description}</p>
-        ${isLogin ? `<div class="ps-role-tabs" role="tablist" aria-label="Tipo de acceso">
+        ${isLogin || isRegister ? `<div class="ps-role-tabs" role="tablist" aria-label="Tipo de acceso">
           ${(["student", "teacher", "admin"] as UserRole[]).map((role) => `<button class="ps-role-tab${selectedLoginRole === role ? " is-active" : ""}" type="button" data-role="${role}" role="tab" aria-selected="${selectedLoginRole === role}">${roleLabel(role)}</button>`).join("")}
-        </div><p class="ps-role-help">${selectedLoginRole === "student" ? "Puedes crear tu cuenta directamente." : selectedLoginRole === "teacher" ? "El acceso docente se habilita mediante invitación institucional." : "El acceso administrativo se provisiona de forma segura por el equipo de PoliScroll."}</p>` : ""}
+        </div><p class="ps-role-help">${selectedLoginRole === "student" ? "Puedes crear tu cuenta directamente." : selectedLoginRole === "teacher" ? "Puedes solicitar acceso docente desde aquí. La aprobación es institucional." : "El acceso administrativo se provisiona de forma segura por el equipo de PoliScroll."}</p>` : ""}
         ${authFeedback ? `<p class="ps-auth-feedback is-${authFeedbackKind}" role="alert">${escapeHTML(authFeedback)}</p>` : ""}
         <form class="ps-auth-form" id="auth-form">
           ${isRegister ? `<label>Nombre completo<input name="displayName" type="text" autocomplete="name" required minlength="2" placeholder="Tu nombre" /></label>` : ""}
+          ${isRegister && selectedLoginRole === "teacher" ? `<label>Institución<input name="institution" required maxlength="160" placeholder="Institución educativa" /></label><label>Programa o área<input name="academicProgram" maxlength="160" placeholder="Programa, facultad o área" /></label><label>Experiencia docente<textarea name="experience" maxlength="1000" placeholder="Describe brevemente tu experiencia"></textarea></label>` : ""}
           <label>Correo electrónico<input name="email" type="email" autocomplete="email" required value="${isConfirm || isForgot ? escapeHTML(pendingEmail) : ""}" placeholder="tu@correo.com" /></label>
           ${isConfirm ? `<label>Código de verificación<input name="code" inputmode="numeric" autocomplete="one-time-code" required minlength="6" placeholder="123456" /></label>` : ""}
           ${isForgot && !isConfirm ? "" : !isForgot ? `<label>Contraseña<input id="auth-password" name="password" type="password" autocomplete="${isRegister ? "new-password" : "current-password"}" required minlength="8" placeholder="${isRegister ? "Crea una contraseña segura" : "Tu contraseña"}" />${isRegister ? `<ul class="ps-password-policy" id="password-policy" aria-label="Requisitos de contraseña"><li data-rule="length">8 caracteres como mínimo</li><li data-rule="uppercase">Una letra mayúscula</li><li data-rule="lowercase">Una letra minúscula</li><li data-rule="number">Un número</li><li data-rule="symbol">Un símbolo</li></ul>` : ""}</label>` : ""}
@@ -589,7 +596,7 @@ function renderAuth(): string {
           <button class="ps-auth-submit${authBusy ? " is-loading" : ""}" type="submit" ${authBusy ? "disabled" : ""}>${authBusy ? `<span class="ps-auth-spinner" aria-hidden="true"></span>Procesando...` : `${isRegister ? "Crear cuenta" : isConfirm ? "Confirmar correo" : isForgot && pendingEmail ? "Guardar contraseña" : isForgot ? "Enviar código" : "Iniciar sesión"} <span aria-hidden="true">↗</span>`}</button>
         </form>
         <div class="ps-auth-links">
-          ${isLogin ? `<button type="button" data-auth-view="register">Crear cuenta de estudiante</button><button type="button" data-auth-view="forgot">Olvidé mi contraseña</button>` : `<button type="button" data-auth-view="login">Volver al acceso</button>`}
+          ${isLogin ? `<button type="button" data-auth-view="register">Crear cuenta o solicitar acceso docente</button><button type="button" data-auth-view="forgot">Olvidé mi contraseña</button>` : `<button type="button" data-auth-view="login">Volver al acceso</button>`}
         </div>
       </section>
     </main>
@@ -684,6 +691,13 @@ async function submitAuth(event: SubmitEvent): Promise<void> {
         return;
       }
       pendingEmail = (email);
+      if (selectedLoginRole === "teacher") {
+        pendingTeacherApplication = {
+          institution: String(data.get("institution") ?? "").trim(),
+          academicProgram: String(data.get("academicProgram") ?? "").trim(),
+          experience: String(data.get("experience") ?? "").trim(),
+        };
+      }
       const confirmationEmail = await register(email, password, String(data.get("displayName") ?? "").trim());
       if (confirmationEmail) {
         authView = "confirm";
@@ -712,9 +726,20 @@ async function submitAuth(event: SubmitEvent): Promise<void> {
       await login(email, password);
       const session = await getSession();
       if (!session) throw new Error("No se pudo recuperar la sesión.");
-      if (selectedLoginRole !== "student" && session.user.role !== selectedLoginRole) {
+      if (selectedLoginRole === "teacher" && session.user.role === "student") {
+        await createTeacherApplication({
+          applicantId: session.user.id,
+          applicantEmail: session.user.email,
+          applicantName: session.user.displayName,
+          ...pendingTeacherApplication,
+        });
+        pendingTeacherApplication = null;
         await logout();
-        throw new Error(`Tu cuenta no tiene acceso de ${roleLabel(selectedLoginRole).toLowerCase()}.`);
+        throw new Error("Solicitud docente enviada. Un administrador revisará tus datos y habilitará el acceso cuando corresponda.");
+      }
+      if (selectedLoginRole === "admin" && session.user.role !== "admin") {
+        await logout();
+        throw new Error("El acceso administrativo se provisiona exclusivamente por el equipo de PoliScroll.");
       }
       authSession = session;
       initializeRoute();
@@ -1197,7 +1222,7 @@ function renderAdminModule(): string {
         <section class="ps-admin-panel-view is-active" data-admin-view="overview"><div class="ps-management-form-heading"><strong>Resumen operativo</strong><span>Selecciona una sección para administrar</span></div><div class="ps-admin-kpi-grid"><button type="button" data-admin-panel="users"><strong>Usuarios</strong><span>Altas, estados y registros</span></button><button type="button" data-admin-panel="academic"><strong>Académico</strong><span>Grupos, cursos y actividades</span></button><button type="button" data-admin-panel="support"><strong>Soporte</strong><span>Tickets y atención</span></button><button type="button" data-admin-panel="audit"><strong>Auditoría</strong><span>Trazabilidad de cambios</span></button></div></section>
         <section class="ps-admin-panel-view" data-admin-view="users"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong><span>Estado y acciones</span></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section>
         <section class="ps-admin-panel-view" data-admin-view="content"><form class="ps-management-form" id="admin-news-form"><div class="ps-management-form-heading"><strong>Nueva publicación</strong><span>Difusión institucional</span></div><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Resumen<input name="summary" maxlength="180" /></label><label>Imagen destacada<input name="coverImageUrl" type="url" placeholder="https://..." /></label><label>Video o enlace<input name="mediaLinks" type="url" placeholder="https://youtube.com/..." /></label></div><label>Contenido<textarea name="body" required maxlength="5000"></textarea></label><button class="ps-create-button" type="submit">Publicar noticia <span>↗</span></button><p class="ps-management-feedback" id="admin-feedback" role="status"></p></form><div class="ps-management-list" id="admin-news-list"><p class="ps-empty-state">Cargando publicaciones…</p></div></section>
-        <section class="ps-admin-panel-view" data-admin-view="academic"><div class="ps-management-form-heading"><strong>Grupos y cursos</strong><span>Accesos rápidos de gestión</span></div><div class="ps-admin-link-grid"><button type="button" data-bottom-module="comunidades">Administrar grupos de estudio ↗</button><button type="button" data-bottom-module="cursos">Administrar cursos ↗</button><button type="button" data-bottom-module="actividades">Administrar actividades ↗</button></div></section>
+        <section class="ps-admin-panel-view" data-admin-view="academic"><div class="ps-management-form-heading"><strong>Grupos, cursos y docentes</strong><span>Gestión académica</span></div><div class="ps-admin-link-grid"><button type="button" data-bottom-module="comunidades">Administrar grupos de estudio ↗</button><button type="button" data-bottom-module="cursos">Administrar cursos ↗</button><button type="button" data-bottom-module="actividades">Administrar actividades ↗</button></div><div class="ps-management-list" id="admin-teacher-applications"><p class="ps-empty-state">Cargando solicitudes docentes…</p></div></section>
         <section class="ps-admin-panel-view" data-admin-view="operations"><div class="ps-management-form-heading"><strong>Operaciones del campus</strong><span>Recursos y agenda institucional</span></div><div class="ps-admin-link-grid"><button type="button" data-bottom-module="bienestar">Gestionar bienestar ↗</button><button type="button" data-bottom-module="espacios">Gestionar espacios ↗</button><button type="button" data-bottom-module="tutorias">Gestionar tutorías ↗</button></div></section>
         <section class="ps-admin-panel-view" data-admin-view="support"><div class="ps-management-form-heading"><strong>Atención y tickets</strong><span>Casos abiertos y seguimiento</span></div><div class="ps-management-list" id="admin-tickets-list"><p class="ps-empty-state">Cargando tickets…</p></div></section>
         <section class="ps-admin-panel-view" data-admin-view="arcade"><div class="ps-management-form-heading"><strong>Configuración de PoliArcade</strong><span>Disponibilidad, niveles y Frenesí</span></div><div class="ps-management-list" id="admin-games-list"><p class="ps-empty-state">Cargando juegos…</p></div></section>
@@ -1242,7 +1267,7 @@ function wireAdminModule(): void {
       mediaLinks: String(values.get("mediaLinks") ?? "").trim() ? [String(values.get("mediaLinks")).trim()] : [],
     }).then(() => { if (feedback) feedback.textContent = "Noticia publicada."; render(); }).catch((error: unknown) => { if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar la noticia."; });
   });
-  void Promise.all([listUserProfiles(), listAuditLogs(), listNewsArticles(), listArcadeGameConfigs(), listSupportTickets()]).then(([profiles, logs, articles, gameConfigs, supportTickets]) => {
+  void Promise.all([listUserProfiles(), listAuditLogs(), listNewsArticles(), listArcadeGameConfigs(), listSupportTickets(), listTeacherApplications()]).then(([profiles, logs, articles, gameConfigs, supportTickets, teacherApplications]) => {
     const uniqueProfiles = [...new Map(profiles.map((profile) => [profile.email.toLowerCase(), profile])).values()];
     users.innerHTML = uniqueProfiles.map((profile) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${profile.role ?? "student"} · ${profile.status ?? "active"}</span><h2>${escapeHTML(profile.displayName)}</h2><p>${escapeHTML(profile.email)}</p></div><div class="ps-inline-actions"><button class="ps-secondary-button" type="button" data-user-status="${profile.status === "suspended" ? "active" : "suspended"}" data-user-id="${profile.id}">${profile.status === "suspended" ? "Habilitar" : "Suspender"}</button>${profile.id !== authSession!.user.id ? `<button class="ps-secondary-button" type="button" data-delete-user="${profile.id}">Eliminar registro</button>` : ""}</div></article>`).join("") || `<p class="ps-empty-state">No hay perfiles.</p>`;
     users.querySelectorAll<HTMLButtonElement>("[data-user-status]").forEach((button) => button.addEventListener("click", () => {
@@ -1310,6 +1335,18 @@ function wireAdminModule(): void {
         void updateSupportTicket({ id, status: status.value as "open" | "in_progress" | "resolved" | "closed", assignedTo: authSession.user.id, response: response.value.trim() }).then(() => render()).catch((error: unknown) => {
           button.disabled = false;
           if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo guardar la atención.";
+        });
+      }));
+    }
+    const teacherApplicationsPanel = document.querySelector<HTMLDivElement>("#admin-teacher-applications");
+    if (teacherApplicationsPanel) {
+      teacherApplicationsPanel.innerHTML = teacherApplications.length ? teacherApplications.map((application) => `<details class="ps-admin-table-row"><summary><span>${escapeHTML(application.applicantName)} · ${escapeHTML(application.applicantEmail)}</span><span class="ps-feed-tag">${application.status ?? "pending"}</span></summary><div class="ps-admin-ticket-detail"><p>${escapeHTML(application.institution ?? "Sin institución")} · ${escapeHTML(application.academicProgram ?? "Sin programa")}</p><p>${escapeHTML(application.experience ?? "Sin experiencia registrada")}</p><div class="ps-inline-actions"><button class="ps-secondary-button" type="button" data-teacher-application="${application.id}" data-next-status="approved">Aprobar solicitud</button><button class="ps-secondary-button" type="button" data-teacher-application="${application.id}" data-next-status="rejected">Rechazar</button></div></div></details>`).join("") : `<p class="ps-empty-state">No hay solicitudes docentes.</p>`;
+      teacherApplicationsPanel.querySelectorAll<HTMLButtonElement>("[data-teacher-application]").forEach((button) => button.addEventListener("click", () => {
+        if (!authSession) return;
+        button.disabled = true;
+        void updateTeacherApplicationStatus(button.dataset.teacherApplication ?? "", button.dataset.nextStatus as "approved" | "rejected", authSession.user.id).then(() => render()).catch((error: unknown) => {
+          button.disabled = false;
+          if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo actualizar la solicitud.";
         });
       }));
     }
