@@ -21,6 +21,8 @@ import {
 } from "./services/data";
 import {
   createCampusEvent,
+  createCourse,
+  createTutoringOffer,
   bookTutoring,
   createChatConversation,
   createGradeRecord,
@@ -271,10 +273,6 @@ const activities: FeedItem[] = [
 
 const modules: ModuleData[] = [
   {
-    id: "actividades-juego", title: "Actividades de juego", category: "Recorridos interactivos", description: "Elige un grupo y completa seis minijuegos consecutivos con tiempo, puntos y feedback final.", icon: "◉", tone: "cyan", metric: "Recorridos", total: "6 actividades", action: "Comenzar",
-    items: activityGroups.map((group) => ({ id: group.id, title: group.title, description: group.description, meta: `${group.mode} · 6 minijuegos`, tag: "Actividad completa", available: true })),
-  },
-  {
     id: "juegos", title: "Juegos", category: "Aprender jugando", description: "Biblioteca de mecánicas originales migradas a TypeScript, preparada para añadir contenido académico sin alterar su juego base.", icon: "★", tone: "purple", metric: "Experiencias", total: "50 juegos", action: "Jugar ahora",
     items: educationalGames.map((game) => ({
       id: game.id,
@@ -435,7 +433,7 @@ function render(): void {
     button.addEventListener("click", () => {
       const actionIndex = Number(button.dataset.roleAction ?? 0);
       const destinations: Record<UserRole, string[]> = {
-        student: ["actividades-juego", "perfil", "juegos"],
+        student: ["actividades", "perfil", "juegos"],
         teacher: ["actividades", "comunidades", "perfil"],
         admin: ["perfil", "actividades", "noticias"],
         super_admin: ["perfil", "actividades", "noticias"],
@@ -762,7 +760,8 @@ function renderModule(module: ModuleData): string {
   }
 
   function renderCoursesModule(module: ModuleData): string {
-    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Aprendizaje / Cursos</p><h1 id="module-title">Rutas de aprendizaje.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Cursos publicados</span><strong id="course-count">—</strong></div></div><div class="ps-data-grid" id="courses-list"><p class="ps-empty-state">Cargando cursos publicados…</p></div><p class="ps-management-feedback" id="courses-feedback" role="status"></p></section>`;
+    const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="course-publisher"><strong>Publicar curso</strong><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option selected>Universitaria</option></select></label><label>Modalidad<select name="modality"><option>Presencial</option><option>Virtual</option><option>Híbrido</option></select></label><label>Duración (semanas)<input name="durationWeeks" type="number" min="1" max="52" value="4" required /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar curso <span>↗</span></button></form>` : "";
+    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Aprendizaje / Cursos</p><h1 id="module-title">Rutas de aprendizaje.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Cursos publicados</span><strong id="course-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="courses-list"><p class="ps-empty-state">Cargando cursos publicados…</p></div><p class="ps-management-feedback" id="courses-feedback" role="status"></p></section>`;
   }
 
   function renderActivitiesModule(module: ModuleData): string {
@@ -770,7 +769,8 @@ function renderModule(module: ModuleData): string {
   }
 
   function renderTutoringModule(module: ModuleData): string {
-    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Acompañamiento / Tutorías</p><h1 id="module-title">Agenda una tutoría.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Áreas activas</span><strong id="tutoring-count">—</strong></div></div><div class="ps-data-grid" id="tutoring-list"><p class="ps-empty-state">Cargando tutores disponibles…</p></div><p class="ps-management-feedback" id="tutoring-feedback" role="status"></p></section>`;
+    const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="tutoring-publisher"><strong>Publicar disponibilidad</strong><div class="ps-management-grid"><label>Área o materia<input name="subject" required maxlength="100" /></label><label>Modalidad<select name="modality"><option>Presencial</option><option>Virtual</option><option>Híbrido</option></select></label><label>Disponibilidad<input name="availability" required maxlength="120" placeholder="Mar y jue 14:00–16:00" /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar tutoría <span>↗</span></button></form>` : "";
+    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Acompañamiento / Tutorías</p><h1 id="module-title">Agenda una tutoría.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Áreas activas</span><strong id="tutoring-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="tutoring-list"><p class="ps-empty-state">Cargando tutores disponibles…</p></div><p class="ps-management-feedback" id="tutoring-feedback" role="status"></p></section>`;
   }
   if (module.id === "comunidades" && authSession && authSession.user.role !== "student") {
     return renderManagementModule("groups", "Grupos de estudio", "Crea grupos, organiza cohortes y acompaña el trabajo de tus estudiantes.");
@@ -859,23 +859,6 @@ function renderFeedItems(module: ModuleData): void {
   if (!feed) return;
 
   const query = searchQuery.trim().toLocaleLowerCase("es");
-  if (module.id === "actividades-juego") {
-    const filteredGroups = activityGroups.filter((group) => `${group.title} ${group.description} ${group.mode}`.toLocaleLowerCase("es").includes(query));
-    document.querySelector<HTMLSpanElement>("#feed-result-count")!.textContent = `${filteredGroups.length} ${filteredGroups.length === 1 ? "actividad" : "actividades"}`;
-    feed.innerHTML = filteredGroups.map((group, index) => `
-      <article class="ps-feed-card ps-game-card" style="--item-order:${index}">
-        <div class="ps-feed-card-top"><span class="ps-feed-tag">${group.mode} · 6 minijuegos</span><span class="ps-feed-index">${String(index + 1).padStart(2, "0")}</span></div>
-        <div class="ps-game-icon" aria-hidden="true">${group.icon}</div>
-        <div class="ps-feed-card-content"><h2>${group.title}</h2><p>${group.description}</p><span class="ps-feed-meta"><span aria-hidden="true">✦</span>${group.stages.map((stage) => stage.source).slice(0, 3).join(" · ")}</span></div>
-        <button class="ps-feed-action" type="button" data-play-activity="${group.id}">Comenzar<span aria-hidden="true">↗</span></button>
-      </article>
-    `).join("");
-    feed.querySelectorAll<HTMLButtonElement>("[data-play-activity]").forEach((button) => button.addEventListener("click", () => {
-      const group = activityGroups.find((candidate) => candidate.id === button.dataset.playActivity);
-      if (group) showGameDialog(group);
-    }));
-    return;
-  }
   const filteredItems = module.items.filter((item) => {
     const matchesQuery = `${item.title} ${item.description} ${item.meta} ${item.tag}`.toLocaleLowerCase("es").includes(query);
     const matchesFilter = activityFilter === "all"
@@ -988,6 +971,20 @@ function wireCoursesModule(module: ModuleData): void {
   const count = document.querySelector<HTMLElement>("#course-count");
   const feedback = document.querySelector<HTMLParagraphElement>("#courses-feedback");
   if (!list || !count || !feedback || !authSession) return;
+  document.querySelector<HTMLFormElement>("#course-publisher")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const values = new FormData(form);
+    feedback.textContent = "Publicando curso…";
+    void createCourse({
+      title: String(values.get("title") ?? "").trim(),
+      description: String(values.get("description") ?? "").trim(),
+      instructorId: authSession!.user.id,
+      educationalLevel: String(values.get("educationalLevel")) as "Primaria" | "Secundaria" | "Universitaria",
+      modality: String(values.get("modality")) as "Presencial" | "Virtual" | "Híbrido",
+      durationWeeks: Number(values.get("durationWeeks")),
+    }).then(() => { feedback.textContent = "Curso publicado correctamente."; render(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar el curso."; });
+  });
   void listCourses().then((courses) => {
     count.textContent = String(courses.length);
     list.innerHTML = courses.length
@@ -1029,6 +1026,19 @@ function wireTutoringModule(): void {
   const count = document.querySelector<HTMLElement>("#tutoring-count");
   const feedback = document.querySelector<HTMLParagraphElement>("#tutoring-feedback");
   if (!list || !count || !feedback || !authSession) return;
+  document.querySelector<HTMLFormElement>("#tutoring-publisher")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const values = new FormData(form);
+    feedback.textContent = "Publicando disponibilidad…";
+    void createTutoringOffer({
+      subject: String(values.get("subject") ?? "").trim(),
+      description: String(values.get("description") ?? "").trim(),
+      tutorId: authSession!.user.id,
+      availability: String(values.get("availability") ?? "").trim(),
+      modality: String(values.get("modality")) as "Presencial" | "Virtual" | "Híbrido",
+    }).then(() => { feedback.textContent = "Oferta de tutoría publicada."; render(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar la tutoría."; });
+  });
   void listTutoringOffers().then((offers) => {
     count.textContent = String(offers.length);
     list.innerHTML = offers.length
@@ -1279,20 +1289,16 @@ function showGameDialog(group: ActivityGroup): void {
   const stages = group.stages.map((stage, index) => ({ ...stage, id: engineIds[index] }));
   const topicOptions = gameTopics.map((topic) => `<option value="${escapeHTML(topic)}"${topic === group.topic ? " selected" : ""}>${escapeHTML(topic)}</option>`).join("");
   const levelOptions = educationalLevels.map((level) => `<option value="${level}">${level}</option>`).join("");
-  root.insertAdjacentHTML("beforeend", `<dialog class="ps-game-dialog ps-activity-dialog" id="game-dialog" aria-labelledby="game-title"><div class="ps-activity-intro" id="activity-intro"><span class="ps-intro-mark">P</span><strong>PoliScroll</strong><p>${escapeHTML(group.title)}</p><label>Tema educativo<select id="activity-topic">${topicOptions}</select></label><label>Nivel<select id="activity-level">${levelOptions}</select></label><b id="intro-countdown">3</b><small>Comencemos</small></div><div class="ps-activity-time-line"><i id="game-perimeter"></i></div><div class="ps-game-shell"><div class="ps-activity-top"><div><small>ACTIVIDAD INTERACTIVA</small><h2 id="game-title">${escapeHTML(group.title)}</h2></div><strong id="activity-score">0</strong></div><p class="ps-game-description">Completa las ${stages.length} etapas. El recorrido avanzará automáticamente al superar cada actividad.</p><div class="ps-activity-hud"><span><small>ACTIVIDAD</small><strong id="activity-count">1 / ${stages.length}</strong></span><span><small>TIEMPO</small><strong id="game-countdown">90s</strong></span></div><div class="ps-activity-scroll" id="game-stage">${stages.map((stage, index) => `<section class="ps-activity-stage${index === 0 ? " is-active" : ""}" data-stage="${index}"><div class="ps-activity-stage-title"><span>${stage.icon}</span><div><small>JUEGO ${index + 1} · ${stage.source}</small><h3>${stage.title}</h3></div></div><div class="ps-mechanic-board" id="board-${stage.id}"></div></section>`).join("")}<section class="ps-activity-stage ps-activity-finish" id="activity-finish"></section></div><audio id="game-music" preload="metadata" loop src="/audio/poliscroll-planning.mp3"></audio></div></dialog>`);
+  root.insertAdjacentHTML("beforeend", `<dialog class="ps-game-dialog ps-activity-dialog" id="game-dialog" aria-labelledby="game-title"><div class="ps-activity-intro" id="activity-intro"><span class="ps-intro-mark">P</span><strong>PoliScroll</strong><p>${escapeHTML(group.title)}</p><label>Tema educativo<select id="activity-topic">${topicOptions}</select></label><label>Nivel<select id="activity-level">${levelOptions}</select></label><b id="intro-countdown">3</b><small>Comencemos</small></div><div class="ps-activity-time-line"><i id="game-perimeter"></i></div><div class="ps-game-shell"><div class="ps-activity-top"><div><small>ACTIVIDAD INTERACTIVA</small><h2 id="game-title">${escapeHTML(group.title)}</h2></div><strong id="activity-score">0</strong></div><p class="ps-game-description">Completa las ${stages.length} etapas. El recorrido avanzará automáticamente al superar cada actividad.</p><div class="ps-activity-hud"><span><small>ACTIVIDAD</small><strong id="activity-count">1 / ${stages.length}</strong></span><span><small>TIEMPO</small><strong id="game-countdown">90s</strong></span></div><div class="ps-activity-scroll" id="game-stage">${stages.map((stage, index) => `<section class="ps-activity-stage${index === 0 ? " is-active" : ""}" data-stage="${index}"><div class="ps-activity-stage-title"><span>${stage.icon}</span><div><small>JUEGO ${index + 1} · ${stage.source}</small><h3>${stage.title}</h3></div></div><div class="ps-mechanic-board" id="board-${stage.id}"></div></section>`).join("")}<section class="ps-activity-stage ps-activity-finish" id="activity-finish"></section></div></div></dialog>`);
   const dialog = document.querySelector<HTMLDialogElement>("#game-dialog");
   const scroll = document.querySelector<HTMLDivElement>("#game-stage");
   const scoreElement = document.querySelector<HTMLElement>("#activity-score");
   const countElement = document.querySelector<HTMLElement>("#activity-count");
   const countdown = document.querySelector<HTMLElement>("#game-countdown");
   const perimeter = document.querySelector<HTMLElement>("#game-perimeter");
-  const music = document.querySelector<HTMLAudioElement>("#game-music");
   const topicSelect = document.querySelector<HTMLSelectElement>("#activity-topic");
   const levelSelect = document.querySelector<HTMLSelectElement>("#activity-level");
-  if (!dialog || !scroll || !scoreElement || !countElement || !countdown || !perimeter || !music) return;
-  const correctSound = new Audio("/audio/poliscroll-beeper.mp3");
-  music.volume = .12;
-  correctSound.volume = .2;
+  if (!dialog || !scroll || !scoreElement || !countElement || !countdown || !perimeter) return;
   let completed = 0;
   let score = 0;
   let finished = false;
@@ -1340,8 +1346,6 @@ function showGameDialog(group: ActivityGroup): void {
     score += points;
     completed += 1;
     trace("stage_completed", index, { points });
-    correctSound.currentTime = 0;
-    correctSound.play().catch(() => undefined);
     document.querySelector<HTMLElement>(`[data-stage="${index}"]`)?.classList.add("is-complete");
     updateHud();
     if (completed === stages.length) { finish(); return; }
@@ -1454,8 +1458,6 @@ function showGameDialog(group: ActivityGroup): void {
     if (introCountdown) introCountdown.textContent = introValue > 0 ? String(introValue) : "¡Ya!";
     if (introValue <= 0) {
       window.clearInterval(introTimer);
-      correctSound.currentTime = 0;
-      correctSound.play().catch(() => undefined);
       window.setTimeout(() => {
         intro?.classList.add("is-hidden");
         startedAt = performance.now();
@@ -1466,7 +1468,6 @@ function showGameDialog(group: ActivityGroup): void {
   dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
   dialog.addEventListener("close", () => {
     window.cancelAnimationFrame(timerFrame);
-    music.pause();
     if (!finished) {
       trace("abandoned", completed, { completedStages: completed });
       if (activitySessionId) {
@@ -1495,7 +1496,6 @@ function showGameDialog(group: ActivityGroup): void {
       level: levelSelect?.value ?? educationalLevels[0],
     });
   }).catch(() => { traceWarning = true; });
-  music.play().catch(() => showToast("El juego continúa sin música de fondo."));
   updateHud();
 }
 

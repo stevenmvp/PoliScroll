@@ -724,6 +724,10 @@
 .ps-tutoring-form { display: grid; gap: 8px; margin-top: 4px; }
 .ps-tutoring-form label { display: grid; gap: 5px; color: var(--ink-soft); font-size: 10px; font-weight: 800; }
 .ps-tutoring-form input, .ps-tutoring-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; }
+.ps-inline-publisher { margin-bottom: 18px; }
+.ps-inline-publisher > strong { color: var(--blue); font-size: 14px; }
+.ps-inline-publisher label { display: grid; gap: 5px; color: var(--ink-soft); font-size: 10px; font-weight: 800; }
+.ps-inline-publisher input, .ps-inline-publisher textarea, .ps-inline-publisher select { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; }
 .ps-metrics-loading { grid-column: 1 / -1; color: var(--ink-soft); font-size: 11px; }
 .ps-management-form { display: grid; gap: 12px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: #fff; }
 .ps-management-form-heading { display: flex; justify-content: space-between; gap: 12px; color: var(--blue); font-size: 13px; }

@@ -207,6 +207,20 @@ export async function listCourses(): Promise<Schema["Course"]["type"][]> {
   return result.data;
 }
 
+export async function createCourse(input: {
+  title: string;
+  description: string;
+  instructorId: string;
+  educationalLevel: "Primaria" | "Secundaria" | "Universitaria";
+  modality: "Presencial" | "Virtual" | "Híbrido";
+  durationWeeks?: number;
+  capacity?: number;
+  startsAt?: string;
+}): Promise<void> {
+  const result = await client.models.Course.create({ ...input, status: "published" });
+  if (result.errors?.length) throw new Error("No se pudo publicar el curso.");
+}
+
 export async function enrollInCourse(courseId: string, userId: string): Promise<void> {
   const result = await client.models.CourseEnrollment.create({
     courseId,
@@ -221,6 +235,17 @@ export async function listTutoringOffers(): Promise<Schema["TutoringOffer"]["typ
   const result = await client.models.TutoringOffer.list({ filter: { status: { eq: "active" } }, limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar las tutorías.");
   return result.data;
+}
+
+export async function createTutoringOffer(input: {
+  subject: string;
+  description: string;
+  tutorId: string;
+  availability: string;
+  modality: "Presencial" | "Virtual" | "Híbrido";
+}): Promise<void> {
+  const result = await client.models.TutoringOffer.create({ ...input, status: "active" });
+  if (result.errors?.length) throw new Error("No se pudo publicar la oferta de tutoría.");
 }
 
 export async function bookTutoring(input: {
