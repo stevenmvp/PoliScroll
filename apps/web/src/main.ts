@@ -946,6 +946,55 @@ function wireModule(module: ModuleData): void {
   renderFeedItems(module);
 }
 
+function renderAdminModule(): string {
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Control y auditoría</p><h1 id="module-title">Centro de control.</h1><p class="ps-module-description">Consulta usuarios y trazabilidad operativa.</p></div></div><div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section></div></section>`;
+}
+
+function renderStudentProgressModule(): string {
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Tu recorrido / Progreso</p><h1 id="module-title">Mi progreso.</h1><p class="ps-module-description">Revisa tus actividades y notificaciones.</p></div></div><div class="ps-admin-panels"><section class="ps-management-panel"><strong>Actividades realizadas</strong><div class="ps-management-list" id="student-progress-list"><p class="ps-empty-state">Cargando progreso…</p></div></section><section class="ps-management-panel"><strong>Notificaciones</strong><div class="ps-management-list" id="student-notifications-list"><p class="ps-empty-state">Cargando notificaciones…</p></div></section></div></section>`;
+}
+
+function renderTeacherReviewModule(): string {
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Espacio docente / Seguimiento</p><h1 id="module-title">Seguimiento académico.</h1><p class="ps-module-description">Revisa sesiones y calificaciones.</p></div></div><form class="ps-management-form" id="grade-form"><div class="ps-management-form-heading"><strong>Registrar calificación</strong><span>Se notificará al estudiante</span></div><div class="ps-management-grid"><label>ID del estudiante<input name="studentId" required /></label><label>ID de actividad<input name="activityId" /></label><label>Puntaje<input name="score" type="number" min="0" step="0.01" required /></label><label>Puntaje máximo<input name="maxScore" type="number" min="0.01" step="0.01" value="100" required /></label></div><label>Feedback<textarea name="feedback" maxlength="500"></textarea></label><button class="ps-create-button" type="submit">Guardar calificación <span>↗</span></button><p class="ps-management-feedback" id="grade-feedback" role="status"></p></form><div class="ps-admin-panels"><section class="ps-management-panel"><strong>Sesiones</strong><div class="ps-management-list" id="teacher-sessions-list"><p class="ps-empty-state">Cargando…</p></div></section><section class="ps-management-panel"><strong>Calificaciones</strong><div class="ps-management-list" id="teacher-grades-list"><p class="ps-empty-state">Cargando…</p></div></section></div></section>`;
+}
+
+function wireAdminModule(): void {
+  const users = document.querySelector<HTMLDivElement>("#admin-users-list");
+  const audit = document.querySelector<HTMLDivElement>("#admin-audit-list");
+  if (!users || !audit) return;
+  void Promise.all([listUserProfiles(), listAuditLogs()]).then(([profiles, logs]) => {
+    users.innerHTML = profiles.map((profile) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${profile.role ?? "student"} · ${profile.status ?? "active"}</span><h2>${escapeHTML(profile.displayName)}</h2><p>${escapeHTML(profile.email)}</p></div></article>`).join("") || `<p class="ps-empty-state">No hay perfiles.</p>`;
+    audit.innerHTML = logs.slice(0, 20).map((log) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(log.entityType)}</span><h2>${escapeHTML(log.action)}</h2><p>${escapeHTML(log.actorId)}</p></div></article>`).join("") || `<p class="ps-empty-state">No hay auditoría.</p>`;
+  }).catch((error: unknown) => { users.textContent = error instanceof Error ? error.message : "No se pudo cargar el centro de control."; });
+}
+
+function wireAcademicModule(role: "student" | "teacher"): void {
+  if (role === "student") {
+    const progress = document.querySelector<HTMLDivElement>("#student-progress-list");
+    const notifications = document.querySelector<HTMLDivElement>("#student-notifications-list");
+    if (!progress || !notifications) return;
+    void Promise.all([listActivitySessions(), listNotifications()]).then(([sessions, items]) => {
+      progress.innerHTML = sessions.map((session) => `<article class="ps-management-card"><div><h2>${escapeHTML(session.activityTitle)}</h2><p>${session.completed ? "Completada" : "Pendiente"}</p></div><strong>${session.score ?? 0} pts</strong></article>`).join("") || `<p class="ps-empty-state">Sin actividades.</p>`;
+      notifications.innerHTML = items.map((item) => `<article class="ps-management-card"><div><h2>${escapeHTML(item.title)}</h2><p>${escapeHTML(item.body)}</p></div></article>`).join("") || `<p class="ps-empty-state">Sin notificaciones.</p>`;
+    }).catch((error: unknown) => { progress.textContent = error instanceof Error ? error.message : "No se pudo cargar el progreso."; });
+    return;
+  }
+  const sessions = document.querySelector<HTMLDivElement>("#teacher-sessions-list");
+  const grades = document.querySelector<HTMLDivElement>("#teacher-grades-list");
+  const form = document.querySelector<HTMLFormElement>("#grade-form");
+  const feedback = document.querySelector<HTMLParagraphElement>("#grade-feedback");
+  if (!sessions || !grades || !form || !feedback || !authSession) return;
+  void Promise.all([listActivitySessions(), listGradeRecords()]).then(([activitySessions, records]) => {
+    sessions.innerHTML = activitySessions.map((session) => `<article class="ps-management-card"><div><h2>${escapeHTML(session.activityTitle)}</h2><p>${session.owner ?? "Cuenta asociada"}</p></div><strong>${session.score ?? 0} pts</strong></article>`).join("") || `<p class="ps-empty-state">Sin sesiones.</p>`;
+    grades.innerHTML = records.map((record) => `<article class="ps-management-card"><div><h2>${escapeHTML(record.feedback ?? "Calificación")}</h2><p>${escapeHTML(record.studentId)}</p></div><strong>${record.score}/${record.maxScore}</strong></article>`).join("") || `<p class="ps-empty-state">Sin calificaciones.</p>`;
+  });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = new FormData(form);
+    void createGradeRecord({ studentId: String(values.get("studentId")), teacherId: authSession!.user.id, activityId: String(values.get("activityId") || "") || undefined, score: Number(values.get("score")), maxScore: Number(values.get("maxScore")), feedback: String(values.get("feedback") || "") || undefined }).then(() => { feedback.textContent = "Calificación guardada y estudiante notificado."; form.reset(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo guardar."; });
+  });
+}
+
 function wireManagementModule(type: "groups" | "news" | "events" | "join"): void {
   const form = document.querySelector<HTMLFormElement>(type === "groups" ? "#group-form" : type === "news" ? "#news-form" : type === "events" ? "#event-form" : "#join-form");
   const list = document.querySelector<HTMLDivElement>("#management-list");
