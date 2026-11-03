@@ -95,6 +95,88 @@ export async function deleteUserProfile(id: string): Promise<void> {
   if (result.errors?.length) throw new Error("No se pudo eliminar el registro del usuario.");
 }
 
+export async function listPublicProfiles(): Promise<Schema["PublicProfile"]["type"][]> {
+  const result = await client.models.PublicProfile.list({ limit: 1000, filter: { isPublic: { eq: true } } });
+  if (result.errors?.length) throw new Error("No se pudieron cargar los perfiles públicos.");
+  return result.data.filter((profile) => profile.isPublic !== false);
+}
+
+export async function getOwnPublicProfile(userId: string): Promise<Schema["PublicProfile"]["type"] | undefined> {
+  const result = await client.models.PublicProfile.list({ filter: { userId: { eq: userId } }, limit: 1 });
+  if (result.errors?.length) throw new Error("No se pudo cargar tu perfil público.");
+  return result.data[0];
+}
+
+export async function updatePublicProfile(input: {
+  id: string;
+  avatarUrl?: string;
+  headline?: string;
+  publicBio?: string;
+  bannerUrl?: string;
+  location?: string;
+  currentStudyPlace?: string;
+  isPublic: boolean;
+}): Promise<void> {
+  const result = await client.models.PublicProfile.update(input);
+  if (result.errors?.length) throw new Error("No se pudo actualizar la información pública.");
+}
+
+export async function listProfileLinks(userId?: string): Promise<Schema["ProfileLink"]["type"][]> {
+  const result = await client.models.ProfileLink.list(userId ? { filter: { userId: { eq: userId } }, limit: 1000 } : { limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar los enlaces del perfil.");
+  return result.data.filter((link) => link.visibility !== "private");
+}
+
+export async function createProfileLink(input: {
+  userId: string;
+  label: string;
+  url: string;
+  icon: string;
+  category: "social" | "professional" | "academic" | "portfolio";
+}): Promise<void> {
+  const result = await client.models.ProfileLink.create({ ...input, visibility: "public", sortOrder: 0 });
+  if (result.errors?.length) throw new Error("No se pudo guardar el enlace.");
+}
+
+export async function listProfileHighlights(userId?: string): Promise<Schema["ProfileHighlight"]["type"][]> {
+  const result = await client.models.ProfileHighlight.list(userId ? { filter: { userId: { eq: userId } }, limit: 1000 } : { limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar los logros y estudios.");
+  return result.data.filter((item) => item.visibility !== "private");
+}
+
+export async function createProfileHighlight(input: {
+  userId: string;
+  kind: "achievement" | "study" | "experience";
+  title: string;
+  description?: string;
+  organization?: string;
+  icon: string;
+}): Promise<void> {
+  const result = await client.models.ProfileHighlight.create({ ...input, visibility: "public" });
+  if (result.errors?.length) throw new Error("No se pudo guardar el elemento del perfil.");
+}
+
+export async function listProfilePosts(authorId?: string): Promise<Schema["ProfilePost"]["type"][]> {
+  const result = await client.models.ProfilePost.list(authorId ? { filter: { authorId: { eq: authorId } }, limit: 1000 } : { limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar las publicaciones.");
+  return result.data.filter((post) => post.status === "published");
+}
+
+export async function createProfilePost(input: {
+  authorId: string;
+  title: string;
+  body: string;
+  mediaUrl?: string;
+  mediaType?: "image" | "video" | "document" | "link";
+}): Promise<void> {
+  const result = await client.models.ProfilePost.create({
+    ...input,
+    status: "published",
+    publishedAt: new Date().toISOString(),
+  });
+  if (result.errors?.length) throw new Error("No se pudo publicar en el perfil.");
+}
+
 export async function listAuditLogs(): Promise<Schema["AuditLog"]["type"][]> {
   const result = await client.models.AuditLog.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudo cargar la auditoría.");

@@ -15,8 +15,67 @@ const schema = a.schema({
       meetingUrl: a.string(),
       resourcesUrl: a.string(),
       interests: a.string().array(),
+      headline: a.string(),
+      publicBio: a.string(),
+      bannerUrl: a.string(),
+      location: a.string(),
+      currentStudyPlace: a.string(),
+      isPublic: a.boolean().default(true),
     })
-    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"]) ]),
+
+  PublicProfile: a
+    .model({
+      userId: a.string().required(),
+      displayName: a.string().required(),
+      role: a.enum(["student", "teacher"]),
+      avatarUrl: a.string(),
+      headline: a.string(),
+      publicBio: a.string(),
+      bannerUrl: a.string(),
+      location: a.string(),
+      currentStudyPlace: a.string(),
+      isPublic: a.boolean().default(true),
+    })
+    .authorization((allow) => [allow.ownerDefinedIn("userId"), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"]) ]),
+
+  ProfileLink: a
+    .model({
+      userId: a.string().required(),
+      label: a.string().required(),
+      url: a.string().required(),
+      icon: a.string().required(),
+      category: a.enum(["social", "professional", "academic", "portfolio"]),
+      visibility: a.enum(["public", "private"]),
+      sortOrder: a.integer().default(0),
+    })
+    .authorization((allow) => [allow.ownerDefinedIn("userId"), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"]) ]),
+
+  ProfileHighlight: a
+    .model({
+      userId: a.string().required(),
+      kind: a.enum(["achievement", "study", "experience"]),
+      title: a.string().required(),
+      description: a.string(),
+      organization: a.string(),
+      icon: a.string().required(),
+      startedAt: a.string(),
+      endedAt: a.string(),
+      visibility: a.enum(["public", "private"]),
+    })
+    .authorization((allow) => [allow.ownerDefinedIn("userId"), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"]) ]),
+
+  ProfilePost: a
+    .model({
+      authorId: a.string().required(),
+      title: a.string().required(),
+      body: a.string().required(),
+      mediaUrl: a.string(),
+      mediaType: a.enum(["image", "video", "document", "link"]),
+      status: a.enum(["draft", "published", "archived"]),
+      publishedAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.ownerDefinedIn("authorId"), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"]) ]),
 
   ActivitySession: a
     .model({

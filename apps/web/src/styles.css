@@ -784,6 +784,26 @@
 .ps-management-card h2 { margin: 8px 0 4px; color: var(--blue); font-size: 17px; }
 .ps-management-card p { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
 .ps-management-card > strong, .ps-management-card time { flex: 0 0 auto; color: var(--cyan); font-size: 11px; font-weight: 900; }
+.ps-profile-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; }
+.ps-profile-view .ps-management-panel { min-width: 0; }
+.ps-profile-mini-form, .ps-profile-post-form { display: grid; gap: 8px; margin: 12px 0; }
+.ps-profile-mini-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ps-profile-mini-form input, .ps-profile-mini-form select, .ps-profile-post-form input, .ps-profile-post-form select, .ps-profile-post-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: #fff; font-size: 12px; }
+.ps-profile-mini-form textarea, .ps-profile-mini-form button { grid-column: 1 / -1; }
+.ps-profile-directory-card { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fff; }
+.ps-profile-directory-card + .ps-profile-directory-card { margin-top: 8px; }
+.ps-profile-directory-card h2 { margin: 5px 0 3px; color: var(--blue); font-size: 15px; }
+.ps-profile-directory-card p, .ps-profile-directory-card small { margin: 0; color: var(--ink-soft); font-size: 11px; }
+.ps-profile-avatar { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 42px; border-radius: 50%; background: #eafaff; color: var(--cyan); font-size: 18px; font-weight: 900; }
+.ps-profile-link { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; border-bottom: 1px solid #edf3f4; padding: 9px 0; color: var(--blue); text-decoration: none; }
+.ps-profile-link span { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 7px; background: #eafaff; color: var(--cyan); font-weight: 900; }
+.ps-profile-link strong { font-size: 12px; }
+.ps-profile-link small { color: var(--ink-soft); font-size: 10px; }
+.ps-profile-posts { display: grid; gap: 10px; }
+.ps-profile-post { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: #fff; }
+.ps-profile-post h2 { margin: 7px 0; color: var(--blue); font-size: 16px; }
+.ps-profile-post p { margin: 0 0 8px; color: var(--ink-soft); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+.ps-profile-post a { color: var(--cyan); font-size: 11px; font-weight: 800; }
 .ps-admin-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .ps-management-panel { display: grid; align-content: start; gap: 12px; min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: #fff; }
 .ps-management-panel .ps-management-card { padding: 12px; }
@@ -809,6 +829,7 @@
 @media (max-width: 720px) { .ps-admin-panels { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .ps-admin-layout { grid-template-columns: 1fr; } .ps-admin-sidebar { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); } .ps-admin-sidebar-title { grid-column: 1 / -1; } .ps-admin-kpi-grid, .ps-admin-link-grid { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .ps-role-workspace { grid-template-columns: 1fr; margin-inline: 18px; } .ps-role-metrics { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 720px) { .ps-profile-columns { grid-template-columns: 1fr; } .ps-profile-mini-form { grid-template-columns: 1fr; } .ps-profile-mini-form textarea, .ps-profile-mini-form button { grid-column: auto; } }
 
 .ps-edge-preview { width: min(250px, calc(100% - 48px)); min-height: 42px; border-color: rgba(203, 221, 224, .68); border-radius: 0 0 38px 38px; border-top: 0; padding: 5px 15px 8px; background: rgba(250, 253, 253, .6); box-shadow: 0 4px 12px rgba(29, 67, 76, .045); filter: none; opacity: .66; backdrop-filter: blur(4px); }
 .ps-edge-preview:disabled { opacity: .26; }

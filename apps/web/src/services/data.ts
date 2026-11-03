@@ -13,7 +13,24 @@ export async function ensureUserProfile(session: AuthSession): Promise<void> {
   if (profiles.errors?.length) {
     throw new Error("No se pudo consultar el perfil del usuario.");
   }
-  if (profiles.data[0]) return;
+  const publicProfiles = await client.models.PublicProfile.list({
+    filter: { userId: { eq: session.user.id } },
+    limit: 1,
+  });
+  if (publicProfiles.errors?.length) {
+    throw new Error("No se pudo consultar la proyección pública del perfil.");
+  }
+  if (profiles.data[0] && publicProfiles.data[0]) return;
+  if (profiles.data[0] && !publicProfiles.data[0]) {
+    const publicProfile = await client.models.PublicProfile.create({
+      userId: session.user.id,
+      displayName: session.user.displayName,
+      role: session.user.role === "teacher" ? "teacher" : "student",
+      isPublic: true,
+    });
+    if (publicProfile.errors?.length) throw new Error("No se pudo crear la proyección pública del perfil.");
+    return;
+  }
 
   const result = await client.models.UserProfile.create({
     displayName: session.user.displayName,
@@ -25,6 +42,16 @@ export async function ensureUserProfile(session: AuthSession): Promise<void> {
 
   if (result.errors?.length) {
     throw new Error("No se pudo crear el perfil del usuario.");
+  }
+
+  const publicProfile = await client.models.PublicProfile.create({
+    userId: session.user.id,
+    displayName: session.user.displayName,
+    role: session.user.role === "teacher" ? "teacher" : "student",
+    isPublic: true,
+  });
+  if (publicProfile.errors?.length) {
+    throw new Error("No se pudo crear la proyección pública del perfil.");
   }
 }
 
