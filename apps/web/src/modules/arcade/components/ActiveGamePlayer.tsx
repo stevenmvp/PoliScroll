@@ -4,6 +4,7 @@ import { soundManager } from '../services/soundManager';
 import { progressionStore } from '../services/progressionStore';
 import { academicStore } from '../services/academicStore';
 import { themeStore } from '../services/themeStore';
+import { loadGameResources } from '../games/registry';
 import {
   ArrowLeft,
   RotateCcw,
@@ -41,6 +42,8 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
   const [surgeStreak, setSurgeStreak] = useState(0);
   const [surgeMultiplier, setSurgeMultiplier] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(themeStore.getSettings().isFullscreen);
+  const [resourceState, setResourceState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [resourceCount, setResourceCount] = useState(0);
 
   const prevScoreRef = useRef(0);
 
@@ -56,6 +59,23 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
       unsubTheme();
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setResourceState('loading');
+    void loadGameResources(game.id)
+      .then((resources) => {
+        if (cancelled) return;
+        setResourceCount(resources ? Object.values(resources).flat().length : 0);
+        setResourceState('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setResourceState('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.id]);
 
   // Prevent browser window from scrolling while playing & capture ESC to go back
   useEffect(() => {
@@ -279,7 +299,7 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-medium text-emerald-700">60 FPS Óptimo</span>
+          <span className="font-medium text-emerald-700">{resourceState === 'error' ? 'Recursos no disponibles' : `${resourceCount} recursos listos`}</span>
         </div>
       </footer>
 
