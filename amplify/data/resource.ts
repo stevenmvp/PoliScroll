@@ -79,7 +79,7 @@ const schema = a.schema({
       tags: a.string().array(),
       version: a.integer().default(1),
     })
-    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+    .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 
   CampusEvent: a
     .model({
@@ -92,7 +92,7 @@ const schema = a.schema({
       status: a.enum(["draft", "published", "cancelled"]),
       capacity: a.integer(),
     })
-    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+    .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 
   ChatConversation: a
     .model({
