@@ -21,6 +21,7 @@ import {
 } from "./services/data";
 import {
   createCampusEvent,
+  bookTutoring,
   createChatConversation,
   createGradeRecord,
   createNewsArticle,
@@ -30,13 +31,16 @@ import {
   askTutor,
   findStudyGroupByCode,
   joinStudyGroup,
+  enrollInCourse,
   listCampusEvents,
+  listCourses,
   listAuditLogs,
   listActivitySessions,
   listGradeRecords,
   listNewsArticles,
   listNotifications,
   listStudyGroups,
+  listTutoringOffers,
   listUserProfiles,
   markChatRead,
   sendChatMessage,
@@ -750,8 +754,23 @@ function renderRoleWorkspace(): string {
 function renderModule(module: ModuleData): string {
   const isActivities = module.id === "actividades";
   const isGames = module.id === "juegos";
+  if (module.id === "cursos") return renderCoursesModule(module);
+  if (module.id === "tutorias") return renderTutoringModule(module);
+  if (module.id === "actividades" && authSession?.user.role === "student") return renderActivitiesModule(module);
   if (module.id === "comunidades" && authSession?.user.role === "student") {
     return renderManagementModule("join", "Únete a un grupo", "Ingresa el código que te compartió tu docente y comienza a participar.");
+  }
+
+  function renderCoursesModule(module: ModuleData): string {
+    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Aprendizaje / Cursos</p><h1 id="module-title">Rutas de aprendizaje.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Cursos publicados</span><strong id="course-count">—</strong></div></div><div class="ps-data-grid" id="courses-list"><p class="ps-empty-state">Cargando cursos publicados…</p></div><p class="ps-management-feedback" id="courses-feedback" role="status"></p></section>`;
+  }
+
+  function renderActivitiesModule(module: ModuleData): string {
+    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Campus / Actividades</p><h1 id="module-title">Actividades disponibles.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Eventos publicados</span><strong id="event-count">—</strong></div></div><div class="ps-data-grid" id="events-list"><p class="ps-empty-state">Cargando actividades…</p></div></section>`;
+  }
+
+  function renderTutoringModule(module: ModuleData): string {
+    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Acompañamiento / Tutorías</p><h1 id="module-title">Agenda una tutoría.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Áreas activas</span><strong id="tutoring-count">—</strong></div></div><div class="ps-data-grid" id="tutoring-list"><p class="ps-empty-state">Cargando tutores disponibles…</p></div><p class="ps-management-feedback" id="tutoring-feedback" role="status"></p></section>`;
   }
   if (module.id === "comunidades" && authSession && authSession.user.role !== "student") {
     return renderManagementModule("groups", "Grupos de estudio", "Crea grupos, organiza cohortes y acompaña el trabajo de tus estudiantes.");
@@ -940,6 +959,18 @@ function wireModule(module: ModuleData): void {
     wireManagementModule("events");
     return;
   }
+  if (module.id === "cursos") {
+    wireCoursesModule(module);
+    return;
+  }
+  if (module.id === "actividades" && authSession?.user.role === "student") {
+    wireActivitiesModule();
+    return;
+  }
+  if (module.id === "tutorias") {
+    wireTutoringModule();
+    return;
+  }
   document.querySelector<HTMLSelectElement>("#module-filter")?.addEventListener("change", (event) => {
     activityFilter = (event.currentTarget as HTMLSelectElement).value;
     renderFeedItems(module);
@@ -950,6 +981,81 @@ function wireModule(module: ModuleData): void {
   });
   document.querySelector<HTMLButtonElement>("#create-activity")?.addEventListener("click", () => showCreateActivityDialog(module));
   renderFeedItems(module);
+}
+
+function wireCoursesModule(module: ModuleData): void {
+  const list = document.querySelector<HTMLDivElement>("#courses-list");
+  const count = document.querySelector<HTMLElement>("#course-count");
+  const feedback = document.querySelector<HTMLParagraphElement>("#courses-feedback");
+  if (!list || !count || !feedback || !authSession) return;
+  void listCourses().then((courses) => {
+    count.textContent = String(courses.length);
+    list.innerHTML = courses.length
+      ? courses.map((course) => `<article class="ps-data-card"><span class="ps-feed-tag">${course.educationalLevel ?? "Campus"} · ${course.modality ?? "Flexible"}</span><h2>${escapeHTML(course.title)}</h2><p>${escapeHTML(course.description)}</p><small>${course.durationWeeks ?? "—"} semanas · Cupo ${course.capacity ?? "abierto"}</small><button class="ps-create-button" type="button" data-enroll-course="${course.id}">Inscribirme <span>↗</span></button></article>`).join("")
+      : `<div class="ps-empty-state ps-data-empty"><strong>No hay cursos publicados todavía.</strong><span>Un docente puede publicar la primera ruta desde su espacio.</span>${module.items.slice(0, 3).map((item) => `<article class="ps-data-card ps-data-card-muted"><span class="ps-feed-tag">${escapeHTML(item.tag)}</span><h2>${escapeHTML(item.title)}</h2><p>${escapeHTML(item.description)}</p><small>${escapeHTML(item.meta)}</small></article>`).join("")}</div>`;
+    list.querySelectorAll<HTMLButtonElement>("[data-enroll-course]").forEach((button) => button.addEventListener("click", () => {
+      button.disabled = true;
+      button.textContent = "Registrando…";
+      void enrollInCourse(button.dataset.enrollCourse ?? "", authSession!.user.id).then(() => {
+        button.textContent = "Inscrito ✓";
+        feedback.textContent = "Tu inscripción quedó registrada.";
+      }).catch((error: unknown) => {
+        button.disabled = false;
+        button.textContent = "Inscribirme ↗";
+        feedback.textContent = error instanceof Error ? error.message : "No se pudo completar la inscripción.";
+      });
+    }));
+  }).catch((error: unknown) => {
+    list.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudieron cargar los cursos.")}</p>`;
+  });
+}
+
+function wireActivitiesModule(): void {
+  const list = document.querySelector<HTMLDivElement>("#events-list");
+  const count = document.querySelector<HTMLElement>("#event-count");
+  if (!list || !count) return;
+  void listCampusEvents().then((events) => {
+    count.textContent = String(events.length);
+    list.innerHTML = events.length
+      ? events.map((event) => `<article class="ps-data-card"><span class="ps-feed-tag">${escapeHTML(event.location ?? "Campus")} · ${event.status ?? "published"}</span><h2>${escapeHTML(event.title)}</h2><p>${escapeHTML(event.description ?? "Actividad abierta a la comunidad.")}</p><small>${new Date(event.startsAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}</small><strong class="ps-data-card-link">Actividad publicada</strong></article>`).join("")
+      : `<p class="ps-empty-state">No hay actividades publicadas en este momento.</p>`;
+  }).catch((error: unknown) => {
+    list.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudieron cargar las actividades.")}</p>`;
+  });
+}
+
+function wireTutoringModule(): void {
+  const list = document.querySelector<HTMLDivElement>("#tutoring-list");
+  const count = document.querySelector<HTMLElement>("#tutoring-count");
+  const feedback = document.querySelector<HTMLParagraphElement>("#tutoring-feedback");
+  if (!list || !count || !feedback || !authSession) return;
+  void listTutoringOffers().then((offers) => {
+    count.textContent = String(offers.length);
+    list.innerHTML = offers.length
+      ? offers.map((offer) => `<article class="ps-data-card"><span class="ps-feed-tag">${escapeHTML(offer.modality ?? "Flexible")}</span><h2>${escapeHTML(offer.subject)}</h2><p>${escapeHTML(offer.description)}</p><small>Disponibilidad: ${escapeHTML(offer.availability)}</small><form class="ps-tutoring-form" data-book-offer="${offer.id}"><label>Fecha y hora<input name="scheduledAt" type="datetime-local" required /></label><label>Nota opcional<textarea name="notes" maxlength="300" placeholder="¿En qué necesitas apoyo?"></textarea></label><button class="ps-create-button" type="submit">Solicitar tutoría <span>↗</span></button></form></article>`).join("")
+      : `<p class="ps-empty-state">No hay ofertas activas. Un docente puede publicar una tutoría desde su espacio.</p>`;
+    list.querySelectorAll<HTMLFormElement>("[data-book-offer]").forEach((form) => form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const button = form.querySelector<HTMLButtonElement>("button");
+      if (button) { button.disabled = true; button.textContent = "Solicitando…"; }
+      void bookTutoring({
+        offerId: form.dataset.bookOffer ?? "",
+        studentId: authSession!.user.id,
+        scheduledAt: new Date(String(data.get("scheduledAt"))).toISOString(),
+        notes: String(data.get("notes") ?? "").trim() || undefined,
+      }).then(() => {
+        feedback.textContent = "Solicitud enviada. El tutor podrá confirmarla desde su espacio.";
+        form.reset();
+        if (button) { button.disabled = false; button.textContent = "Solicitar tutoría ↗"; }
+      }).catch((error: unknown) => {
+        feedback.textContent = error instanceof Error ? error.message : "No se pudo solicitar la tutoría.";
+        if (button) { button.disabled = false; button.textContent = "Solicitar tutoría ↗"; }
+      });
+    }));
+  }).catch((error: unknown) => {
+    list.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudieron cargar las tutorías.")}</p>`;
+  });
 }
 
 function renderAdminModule(): string {

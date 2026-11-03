@@ -94,6 +94,51 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 
+  Course: a
+    .model({
+      title: a.string().required(),
+      description: a.string().required(),
+      instructorId: a.string().required(),
+      educationalLevel: a.enum(["Primaria", "Secundaria", "Universitaria"]),
+      modality: a.enum(["Presencial", "Virtual", "Híbrido"]),
+      durationWeeks: a.integer(),
+      capacity: a.integer(),
+      status: a.enum(["draft", "published", "closed"]),
+      startsAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
+
+  CourseEnrollment: a
+    .model({
+      courseId: a.string().required(),
+      userId: a.string().required(),
+      status: a.enum(["active", "completed", "cancelled"]),
+      enrolledAt: a.datetime().required(),
+    })
+    .authorization((allow) => [allow.ownerDefinedIn("userId"), allow.groups(["admin", "teacher"])]),
+
+  TutoringOffer: a
+    .model({
+      subject: a.string().required(),
+      description: a.string().required(),
+      tutorId: a.string().required(),
+      availability: a.string().required(),
+      modality: a.enum(["Presencial", "Virtual", "Híbrido"]),
+      status: a.enum(["active", "paused", "closed"]),
+    })
+    .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
+
+  TutoringBooking: a
+    .model({
+      offerId: a.string().required(),
+      studentId: a.string().required(),
+      scheduledAt: a.datetime().required(),
+      status: a.enum(["requested", "confirmed", "cancelled", "completed"]),
+      notes: a.string(),
+      createdAt: a.datetime().required(),
+    })
+    .authorization((allow) => [allow.ownerDefinedIn("studentId"), allow.groups(["admin", "teacher"])]),
+
   ChatConversation: a
     .model({
       title: a.string(),

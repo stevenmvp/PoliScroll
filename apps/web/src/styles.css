@@ -711,6 +711,19 @@
 .ps-role-workspace.is-collapsed .ps-role-copy > p, .ps-role-workspace.is-collapsed .ps-role-title { display: none; }
 .ps-role-workspace.is-collapsed .ps-role-copy h2 { margin-bottom: 0; font-size: clamp(20px, 2.3vw, 28px); }
 .ps-role-workspace.is-collapsed .ps-role-details { display: none; }
+.ps-data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.ps-data-card { display: grid; gap: 10px; align-content: start; border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: #fff; box-shadow: 0 8px 18px rgba(30, 66, 75, .05); }
+.ps-data-card h2 { margin: 0; color: var(--blue); font-size: 19px; }
+.ps-data-card p { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.ps-data-card small { color: var(--ink-soft); font-size: 11px; }
+.ps-data-card .ps-create-button { justify-self: start; }
+.ps-data-card-muted { box-shadow: none; background: #f8fbfb; }
+.ps-data-empty { display: contents; }
+.ps-data-empty > strong, .ps-data-empty > span { grid-column: 1 / -1; }
+.ps-data-card-link { color: var(--cyan); font-size: 11px; }
+.ps-tutoring-form { display: grid; gap: 8px; margin-top: 4px; }
+.ps-tutoring-form label { display: grid; gap: 5px; color: var(--ink-soft); font-size: 10px; font-weight: 800; }
+.ps-tutoring-form input, .ps-tutoring-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; }
 .ps-metrics-loading { grid-column: 1 / -1; color: var(--ink-soft); font-size: 11px; }
 .ps-management-form { display: grid; gap: 12px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: #fff; }
 .ps-management-form-heading { display: flex; justify-content: space-between; gap: 12px; color: var(--blue); font-size: 13px; }
