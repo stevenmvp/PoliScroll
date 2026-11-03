@@ -227,6 +227,14 @@ export async function createChatConversation(input: {
     archived: false,
   });
   if (result.errors?.length || !result.data?.id) throw new Error("No se pudo iniciar el chat.");
+  const participant = await client.models.ChatParticipant.create({
+    conversationId: result.data.id,
+    userId: input.createdBy,
+    joinedAt: new Date().toISOString(),
+    lastReadAt: new Date().toISOString(),
+    muted: false,
+  });
+  if (participant.errors?.length) throw new Error("La conversación se creó, pero no se pudo registrar al participante.");
   return result.data.id;
 }
 
@@ -243,9 +251,25 @@ export async function sendChatMessage(input: {
   if (result.errors?.length) throw new Error("No se pudo enviar el mensaje.");
   const conversation = await client.models.ChatConversation.get({ id: input.conversationId });
   if (conversation.data) {
-    await client.models.ChatConversation.update({
+    const updated = await client.models.ChatConversation.update({
       id: input.conversationId,
       lastMessageAt: sentAt,
     });
+    if (updated.errors?.length) throw new Error("El mensaje se guardó, pero no se pudo actualizar la conversación.");
   }
+}
+
+export async function markChatRead(conversationId: string, userId: string): Promise<void> {
+  const result = await client.models.ChatParticipant.list({
+    filter: { conversationId: { eq: conversationId }, userId: { eq: userId } },
+    limit: 1,
+  });
+  if (result.errors?.length) throw new Error("No se pudo consultar la participación del chat.");
+  const participant = result.data[0];
+  if (!participant) return;
+  const updated = await client.models.ChatParticipant.update({
+    id: participant.id,
+    lastReadAt: new Date().toISOString(),
+  });
+  if (updated.errors?.length) throw new Error("No se pudo marcar el chat como leído.");
 }

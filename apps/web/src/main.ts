@@ -37,6 +37,7 @@ import {
   listNotifications,
   listStudyGroups,
   listUserProfiles,
+  markChatRead,
   sendChatMessage,
   type DashboardSummary,
 } from "./services/platform";
@@ -437,7 +438,10 @@ function render(): void {
   });
 
   const chatDialog = document.querySelector<HTMLDialogElement>("#polichat-dialog");
-  document.querySelector<HTMLButtonElement>("#open-polichat")?.addEventListener("click", () => chatDialog?.showModal());
+  document.querySelector<HTMLButtonElement>("#open-polichat")?.addEventListener("click", () => {
+    chatDialog?.showModal();
+    if (chatConversationId && authSession) void markChatRead(chatConversationId, authSession.user.id).catch(() => undefined);
+  });
   document.querySelector<HTMLButtonElement>("#close-polichat")?.addEventListener("click", () => chatDialog?.close());
   document.querySelector<HTMLFormElement>("#polichat-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
