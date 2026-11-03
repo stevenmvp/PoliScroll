@@ -27,7 +27,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
   const [inspectedGame, setInspectedGame] = useState<GameDefinition | null>(null);
   const [progression, setProgression] = useState(progressionStore.getData());
   const [arcadeConfig, setArcadeConfig] = useState(() => arcadeConfigStore.getConfig());
-  const [catalogMode, setCatalogMode] = useState<'grid' | 'reels'>('reels');
+  const [catalogMode, setCatalogMode] = useState<'grid' | 'reels'>(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches ? 'reels' : 'grid'
+  );
 
   React.useEffect(() => {
     const unsub1 = progressionStore.subscribe(() => {
@@ -64,7 +66,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-6 select-none">
+    <div className="w-full min-w-0 max-w-7xl mx-auto px-3 sm:px-4 md:px-8 py-5 md:py-6 select-none">
       {/* Clean Contemporary White Hero Banner */}
       <div className="mb-8 p-6 md:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="relative z-10 max-w-2xl">
@@ -192,7 +194,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
       </div>
 
       {/* Category Filter Tabs (Interactive Filter Controls, functional buttons) */}
-      <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 border border-slate-200 rounded-2xl mb-8 overflow-x-auto">
+      <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-100 border border-slate-200 rounded-2xl mb-6 overflow-hidden">
         {[
           { id: 'all', label: 'Todos los Juegos' },
           { id: '3d', label: 'Mundos 3D' },
@@ -232,9 +234,11 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           return (
             <div
               key={game.id}
-              className={`group relative bg-white border border-slate-200 hover:border-slate-300 rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 shadow-xs hover:shadow-md ${catalogMode === 'reels' ? 'min-h-[min(68vh,620px)] snap-start md:p-10' : ''}`}
-            >
-              <div>
+              className={`group relative min-w-0 overflow-hidden bg-white border border-slate-200 hover:border-slate-300 rounded-3xl p-5 md:p-6 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 shadow-xs hover:shadow-md ${catalogMode === 'reels' ? 'min-h-[min(58vh,540px)] snap-start md:p-9' : ''}`}
+                  style={{ '--game-accent': game.accentColor } as React.CSSProperties}
+                >
+                  <div className="h-1.5 -mx-5 md:-mx-6 -mt-5 md:-mt-6 mb-5 md:mb-6 rounded-b-full opacity-80" style={{ background: `linear-gradient(90deg, ${game.color}, ${game.accentColor})` }} />
+                  <div>
                 {/* Quiet Unboxed Metadata (Zero-Pill rule) */}
                 <div className="flex items-center gap-2 text-xs text-slate-500 mb-2 font-medium">
                   <span className="font-mono text-violet-600 uppercase font-bold">
@@ -255,6 +259,10 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                 <p className="mt-2 text-xs md:text-sm text-slate-600 leading-relaxed line-clamp-2">
                   {game.tagline}
                 </p>
+                <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-400">
+                  <span>{game.controlsDescription.mobile}</span>
+                  {game.resources && <span>{Object.values(game.resources).flat().length} recursos locales</span>}
+                </div>
 
                 {/* High score info */}
                 {highScore > 0 && (

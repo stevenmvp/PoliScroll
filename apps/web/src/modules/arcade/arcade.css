@@ -34,10 +34,20 @@
 }
 
 .arcade-reels {
-  max-height: min(76vh, 760px);
+  max-height: min(72vh, 720px);
   scrollbar-width: thin;
 }
 
 .arcade-reels > * {
-  min-height: min(68vh, 620px);
+  min-height: min(58vh, 540px);
+}
+
+@media (max-width: 700px) {
+  .arcade-reels {
+    max-height: min(68vh, 620px);
+  }
+
+  .arcade-reels > * {
+    min-height: min(58vh, 540px);
+  }
 }
