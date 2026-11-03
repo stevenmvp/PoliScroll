@@ -30,6 +30,8 @@ import {
   joinStudyGroup,
   listCampusEvents,
   listAuditLogs,
+  listActivitySessions,
+  listGradeRecords,
   listNewsArticles,
   listStudyGroups,
   listUserProfiles,
@@ -749,6 +751,12 @@ function renderModule(module: ModuleData): string {
   if (module.id === "perfil" && (authSession?.user.role === "admin" || authSession?.user.role === "super_admin")) {
     return renderAdminModule();
   }
+  if (module.id === "perfil" && authSession?.user.role === "student") {
+    return renderStudentProgressModule();
+  }
+  if (module.id === "perfil" && authSession?.user.role === "teacher") {
+    return renderTeacherReviewModule();
+  }
   if (module.id === "actividades" && authSession && authSession.user.role !== "student") {
     return renderManagementModule("events", "Eventos del campus", "Programa talleres, encuentros y experiencias para tu comunidad académica.");
   }
@@ -897,6 +905,10 @@ function wireModule(module: ModuleData): void {
     wireAdminModule();
     return;
   }
+  if (module.id === "perfil" && (authSession?.user.role === "student" || authSession?.user.role === "teacher")) {
+    wireAcademicModule(authSession.user.role);
+    return;
+  }
   if (module.id === "comunidades" && authSession?.user.role === "student") {
     wireManagementModule("join");
     return;
@@ -954,6 +966,42 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
             <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong><span>Últimos cambios</span></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section>
           </div>
         </section>`;
+      }
+
+      function renderStudentProgressModule(): string {
+        return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+          <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Tu recorrido <span class="ps-breadcrumb">/ Progreso</span></p><h1 id="module-title">Mi progreso<span class="ps-heading-period">.</span></h1><p class="ps-module-description">Revisa tus actividades completadas, puntuaciones y oportunidades para seguir aprendiendo.</p></div><div class="ps-module-total"><span>Sincronizado</span><strong>✓</strong></div></div>
+          <div class="ps-management-panel"><div class="ps-management-form-heading"><strong>Actividades realizadas</strong><span>Datos de tu cuenta</span></div><div class="ps-management-list" id="student-progress-list"><p class="ps-empty-state">Cargando progreso…</p></div></div>
+        </section>`;
+      }
+
+      function renderTeacherReviewModule(): string {
+        return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+          <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Espacio docente <span class="ps-breadcrumb">/ Seguimiento</span></p><h1 id="module-title">Seguimiento académico<span class="ps-heading-period">.</span></h1><p class="ps-module-description">Consulta las sesiones realizadas y las calificaciones disponibles para revisión.</p></div><div class="ps-module-total"><span>Registros</span><strong>↗</strong></div></div>
+          <div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Sesiones de actividad</strong><span>Últimos registros</span></div><div class="ps-management-list" id="teacher-sessions-list"><p class="ps-empty-state">Cargando sesiones…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Calificaciones</strong><span>Últimos registros</span></div><div class="ps-management-list" id="teacher-grades-list"><p class="ps-empty-state">Cargando calificaciones…</p></div></section></div>
+        </section>`;
+      }
+
+      function wireAcademicModule(role: "student" | "teacher"): void {
+        if (role === "student") {
+          const list = document.querySelector<HTMLDivElement>("#student-progress-list");
+          if (!list) return;
+          void listActivitySessions().then((sessions) => {
+            list.innerHTML = sessions.length ? sessions.slice().sort((a, b) => b.startedAt.localeCompare(a.startedAt)).map((session) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${session.completed ? "Completada" : session.abandoned ? "Abandonada" : "En progreso"} · ${session.topic ?? "Actividad"}</span><h2>${escapeHTML(session.activityTitle)}</h2><p>${session.finishedAt ? `Finalizada ${new Date(session.finishedAt).toLocaleDateString("es-CO")}` : "Todavía no finalizada"}</p></div><strong>${session.score ?? 0} pts</strong></article>`).join("") : `<p class="ps-empty-state">Aún no tienes actividades registradas.</p>`;
+          }).catch((error: unknown) => { list.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudo cargar el progreso.")}</p>`; });
+          return;
+        }
+        const sessionsList = document.querySelector<HTMLDivElement>("#teacher-sessions-list");
+        const gradesList = document.querySelector<HTMLDivElement>("#teacher-grades-list");
+        if (!sessionsList || !gradesList) return;
+        void Promise.all([listActivitySessions(), listGradeRecords()]).then(([sessions, grades]) => {
+          sessionsList.innerHTML = sessions.length ? sessions.slice(0, 20).map((session) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${session.completed ? "Completada" : "Pendiente"} · ${session.topic ?? "Actividad"}</span><h2>${escapeHTML(session.activityTitle)}</h2><p>Estudiante: ${escapeHTML(session.owner ?? "Cuenta asociada")}</p></div><strong>${session.score ?? 0} pts</strong></article>`).join("") : `<p class="ps-empty-state">No hay sesiones disponibles.</p>`;
+          gradesList.innerHTML = grades.length ? grades.slice(0, 20).map((grade) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${grade.activityId ? "Actividad" : "Registro académico"}</span><h2>${grade.feedback ? escapeHTML(grade.feedback) : "Calificación registrada"}</h2><p>Estudiante: ${escapeHTML(grade.studentId)}</p></div><strong>${grade.score}/${grade.maxScore}</strong></article>`).join("") : `<p class="ps-empty-state">No hay calificaciones disponibles.</p>`;
+        }).catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : "No se pudo cargar el seguimiento.";
+          sessionsList.innerHTML = `<p class="ps-empty-state">${escapeHTML(message)}</p>`;
+          gradesList.innerHTML = "";
+        });
       }
 
       function wireAdminModule(): void {

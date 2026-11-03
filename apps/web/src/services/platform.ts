@@ -91,6 +91,18 @@ export async function listAuditLogs(): Promise<Schema["AuditLog"]["type"][]> {
   return result.data;
 }
 
+export async function listActivitySessions(): Promise<Schema["ActivitySession"]["type"][]> {
+  const result = await client.models.ActivitySession.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar las sesiones.");
+  return result.data;
+}
+
+export async function listGradeRecords(): Promise<Schema["GradeRecord"]["type"][]> {
+  const result = await client.models.GradeRecord.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar las calificaciones.");
+  return result.data;
+}
+
 export async function listStudyGroups(): Promise<Schema["StudyGroup"]["type"][]> {
   const result = await client.models.StudyGroup.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar los grupos.");
