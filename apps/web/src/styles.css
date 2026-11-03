@@ -702,6 +702,20 @@
 .ps-role-metrics small { color: var(--ink-soft); font-size: 9px; font-weight: 900; text-transform: uppercase; }
 .ps-role-metrics strong { color: var(--blue); font-size: 24px; }
 .ps-metrics-loading { grid-column: 1 / -1; color: var(--ink-soft); font-size: 11px; }
+.ps-management-form { display: grid; gap: 12px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: #fff; }
+.ps-management-form-heading { display: flex; justify-content: space-between; gap: 12px; color: var(--blue); font-size: 13px; }
+.ps-management-form-heading span { color: var(--ink-soft); font-size: 10px; }
+.ps-management-form label { display: grid; gap: 6px; color: var(--blue); font-size: 11px; font-weight: 900; }
+.ps-management-form input, .ps-management-form textarea, .ps-management-form select { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; outline: 0; background: #fbfefe; color: var(--blue); font: inherit; font-size: 12px; }
+.ps-management-form textarea { min-height: 80px; resize: vertical; }
+.ps-management-form input:focus, .ps-management-form textarea:focus, .ps-management-form select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px #1fb2de22; }
+.ps-management-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ps-management-feedback { min-height: 16px; margin: 0; color: var(--ink-soft); font-size: 11px; }
+.ps-management-list { display: grid; gap: 10px; }
+.ps-management-card { display: flex; align-items: start; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: #fff; }
+.ps-management-card h2 { margin: 8px 0 4px; color: var(--blue); font-size: 17px; }
+.ps-management-card p { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
+.ps-management-card > strong, .ps-management-card time { flex: 0 0 auto; color: var(--cyan); font-size: 11px; font-weight: 900; }
 @keyframes ps-spin { to { transform: rotate(360deg); } }
 @media (max-width: 720px) { .ps-role-workspace { grid-template-columns: 1fr; margin-inline: 18px; } .ps-role-metrics { grid-template-columns: repeat(2, 1fr); } }
 

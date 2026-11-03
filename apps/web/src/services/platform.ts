@@ -78,3 +78,44 @@ export function dashboardRoleTitle(role: UserRole): string {
   if (role === "teacher") return "Panel docente";
   return "Tu progreso";
 }
+
+export async function listStudyGroups(): Promise<Schema["StudyGroup"]["type"][]> {
+  const result = await client.models.StudyGroup.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar los grupos.");
+  return result.data;
+}
+
+export async function createStudyGroup(input: {
+  name: string;
+  description: string;
+  code: string;
+  teacherId: string;
+  educationalLevel: "Primaria" | "Secundaria" | "Universitaria";
+}): Promise<void> {
+  const result = await client.models.StudyGroup.create({
+    ...input,
+    status: "active",
+  });
+  if (result.errors?.length) throw new Error("No se pudo crear el grupo.");
+}
+
+export async function listNewsArticles(): Promise<Schema["NewsArticle"]["type"][]> {
+  const result = await client.models.NewsArticle.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar las publicaciones.");
+  return result.data;
+}
+
+export async function createNewsArticle(input: {
+  title: string;
+  summary: string;
+  body: string;
+  authorId: string;
+}): Promise<void> {
+  const result = await client.models.NewsArticle.create({
+    ...input,
+    status: "published",
+    publishedAt: new Date().toISOString(),
+    version: 1,
+  });
+  if (result.errors?.length) throw new Error("No se pudo publicar la noticia.");
+}

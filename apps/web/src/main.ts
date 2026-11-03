@@ -19,7 +19,15 @@ import {
   finishActivitySession,
   recordActivityEvent,
 } from "./services/data";
-import { dashboardRoleTitle, getDashboardSummary, type DashboardSummary } from "./services/platform";
+import {
+  createNewsArticle,
+  createStudyGroup,
+  dashboardRoleTitle,
+  getDashboardSummary,
+  listNewsArticles,
+  listStudyGroups,
+  type DashboardSummary,
+} from "./services/platform";
 
 interface FeedItem {
   id: string;
@@ -702,10 +710,32 @@ function renderRoleWorkspace(): string {
 function renderModule(module: ModuleData): string {
   const isActivities = module.id === "actividades";
   const isGames = module.id === "juegos";
+  if (module.id === "comunidades" && authSession && authSession.user.role !== "student") {
+    return renderManagementModule("groups", "Grupos de estudio", "Crea grupos, organiza cohortes y acompaña el trabajo de tus estudiantes.");
+  }
+  if (module.id === "noticias" && authSession?.user.role === "admin") {
+    return renderManagementModule("news", "Noticias del campus", "Publica comunicaciones oficiales y conserva un historial de versiones.");
+  }
   if (isGames) {
     return `<section class="ps-module-view ps-arcade-module" aria-labelledby="module-title">
       <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Juegos <span class="ps-breadcrumb">/ Vortex Arcade</span></p><h1 id="module-title">Vortex Arcade<span class="ps-heading-period">.</span></h1><p class="ps-module-description">El arcade educativo de PoliScroll: 16 juegos 2D y 3D, entrenamientos, metrónomo, sonidos y tutor académico.</p></div><div class="ps-module-total"><span>Juegos portados</span><strong>16</strong></div></div>
       <div id="arcade-root" class="ps-arcade-root"></div>
+    </section>`;
+  }
+
+  function renderManagementModule(type: "groups" | "news", title: string, description: string): string {
+    const isGroups = type === "groups";
+    return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Gestión <span class="ps-breadcrumb">/ ${title}</span></p><h1 id="module-title">${title}<span class="ps-heading-period">.</span></h1><p class="ps-module-description">${description}</p></div><div class="ps-module-total"><span>${isGroups ? "Gestión académica" : "Publicación"}</span><strong>+</strong></div></div>
+      <form class="ps-management-form" id="${isGroups ? "group-form" : "news-form"}">
+        <div class="ps-management-form-heading"><strong>${isGroups ? "Nuevo grupo" : "Nueva publicación"}</strong><span>Los cambios se guardan en el campus</span></div>
+        <label>${isGroups ? "Nombre del grupo" : "Título"}<input name="title" required maxlength="120" placeholder="${isGroups ? "Ej. Anatomía Secundaria 01" : "Título de la publicación"}" /></label>
+        <label>Descripción<textarea name="description" required maxlength="500" placeholder="${isGroups ? "Describe el propósito del grupo" : "Resumen visible en el campus"}></textarea></label>
+        ${isGroups ? `<div class="ps-management-grid"><label>Código<input name="code" required pattern="[A-Za-z0-9-]{4,20}" placeholder="ANAT-01" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option>Universitaria</option></select></label></div>` : `<label>Contenido<textarea name="body" required maxlength="5000" placeholder="Escribe el contenido completo"></textarea></label>`}
+        <button class="ps-create-button" type="submit">${isGroups ? "Crear grupo" : "Publicar noticia"} <span>↗</span></button>
+        <p class="ps-management-feedback" id="management-feedback" role="status"></p>
+      </form>
+      <div class="ps-management-list" id="management-list"><p class="ps-empty-state">Cargando información…</p></div>
     </section>`;
   }
   return `
@@ -814,6 +844,14 @@ function wireHome(): void {
 }
 
 function wireModule(module: ModuleData): void {
+  if (module.id === "comunidades" && authSession?.user.role !== "student") {
+    wireManagementModule("groups");
+    return;
+  }
+  if (module.id === "noticias" && authSession?.user.role === "admin") {
+    wireManagementModule("news");
+    return;
+  }
   document.querySelector<HTMLSelectElement>("#module-filter")?.addEventListener("change", (event) => {
     activityFilter = (event.currentTarget as HTMLSelectElement).value;
     renderFeedItems(module);
@@ -824,6 +862,55 @@ function wireModule(module: ModuleData): void {
   });
   document.querySelector<HTMLButtonElement>("#create-activity")?.addEventListener("click", () => showCreateActivityDialog(module));
   renderFeedItems(module);
+}
+
+function wireManagementModule(type: "groups" | "news"): void {
+  const form = document.querySelector<HTMLFormElement>(type === "groups" ? "#group-form" : "#news-form");
+  const list = document.querySelector<HTMLDivElement>("#management-list");
+  const feedback = document.querySelector<HTMLParagraphElement>("#management-feedback");
+  if (!form || !list || !feedback || !authSession) return;
+
+  const renderList = async (): Promise<void> => {
+    try {
+      if (type === "groups") {
+        const groups = await listStudyGroups();
+        list.innerHTML = groups.length ? groups.map((group) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${group.educationalLevel ?? "Campus"} · ${group.status ?? "active"}</span><h2>${escapeHTML(group.name)}</h2><p>${escapeHTML(group.description ?? "Sin descripción")}</p></div><strong>${escapeHTML(group.code)}</strong></article>`).join("") : `<p class="ps-empty-state">Todavía no hay grupos creados.</p>`;
+      } else {
+        const articles = await listNewsArticles();
+        list.innerHTML = articles.length ? articles.map((article) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${article.status ?? "draft"} · v${article.version ?? 1}</span><h2>${escapeHTML(article.title)}</h2><p>${escapeHTML(article.summary ?? "")}</p></div><time>${article.publishedAt ? new Date(article.publishedAt).toLocaleDateString("es-CO") : "Borrador"}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay publicaciones.</p>`;
+      }
+    } catch (error) {
+      feedback.textContent = error instanceof Error ? error.message : "No se pudo cargar la información.";
+    }
+  };
+
+  void renderList();
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    feedback.textContent = "Guardando…";
+    const operation = type === "groups"
+      ? createStudyGroup({
+        name: String(data.get("title") ?? "").trim(),
+        description: String(data.get("description") ?? "").trim(),
+        code: String(data.get("code") ?? "").trim().toUpperCase(),
+        teacherId: authSession!.user.id,
+        educationalLevel: String(data.get("educationalLevel") ?? "Universitaria") as "Primaria" | "Secundaria" | "Universitaria",
+      })
+      : createNewsArticle({
+        title: String(data.get("title") ?? "").trim(),
+        summary: String(data.get("description") ?? "").trim(),
+        body: String(data.get("body") ?? "").trim(),
+        authorId: authSession!.user.id,
+      });
+    void operation.then(() => {
+      feedback.textContent = type === "groups" ? "Grupo creado correctamente." : "Noticia publicada correctamente.";
+      form.reset();
+      void renderList();
+    }).catch((error: unknown) => {
+      feedback.textContent = error instanceof Error ? error.message : "No se pudo guardar.";
+    });
+  });
 }
 
 function showGameDialog(group: ActivityGroup): void {
