@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { type GameDefinition, type GameResult } from '../types/game';
+import { type GameDefinition, type GameInstanceProps, type GameResult } from '../types/game';
 import { soundManager } from '../services/soundManager';
 import { progressionStore } from '../services/progressionStore';
 import { academicStore } from '../services/academicStore';
 import { themeStore } from '../services/themeStore';
-import { loadGameResources } from '../games/registry';
+import { loadGameComponent, loadGameResources } from '../games/registry';
 import {
   ArrowLeft,
   RotateCcw,
@@ -44,6 +44,8 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(themeStore.getSettings().isFullscreen);
   const [resourceState, setResourceState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [resourceCount, setResourceCount] = useState(0);
+  const [gameComponent, setGameComponent] = useState<React.ComponentType<GameInstanceProps> | null>(null);
+  const [componentError, setComponentError] = useState<string | null>(null);
 
   const prevScoreRef = useRef(0);
 
@@ -62,6 +64,17 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
 
   useEffect(() => {
     let cancelled = false;
+    setGameComponent(null);
+    setComponentError(null);
+    void loadGameComponent(game)
+      .then((component) => {
+        if (!cancelled) setGameComponent(() => component);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setComponentError(error instanceof Error ? error.message : 'No se pudo cargar el juego.');
+        }
+      });
     setResourceState('loading');
     void loadGameResources(game.id)
       .then((resources) => {
@@ -75,7 +88,7 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [game.id]);
+  }, [game]);
 
   // Prevent browser window from scrolling while playing & capture ESC to go back
   useEffect(() => {
@@ -147,8 +160,6 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
     prevScoreRef.current = 0;
     setSessionKey((k) => k + 1);
   };
-
-  const Component = game.Component;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-100 flex flex-col justify-between overflow-hidden select-none">
@@ -281,12 +292,31 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
             isFullscreen ? 'max-w-none max-h-none h-full aspect-auto rounded-none border-none' : ''
           }`}
         >
-          <Component
-            key={sessionKey}
-            onGameOver={handleGameOver}
-            isFrenzyMode={false}
-            onScoreUpdate={handleScoreUpdate}
-          />
+          {componentError ? (
+            <div className="p-6 text-center">
+              <p className="text-sm font-bold text-rose-700">No se pudo cargar este juego</p>
+              <p className="mt-1 text-xs text-slate-500">{componentError}</p>
+              <button
+                type="button"
+                onClick={restartGame}
+                className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : gameComponent ? (
+            React.createElement(gameComponent, {
+              key: sessionKey,
+              onGameOver: handleGameOver,
+              isFrenzyMode: false,
+              onScoreUpdate: handleScoreUpdate,
+            })
+          ) : (
+            <div className="flex flex-col items-center gap-3 p-6 text-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+              <p className="text-xs font-semibold text-slate-500">Preparando actividad...</p>
+            </div>
+          )}
         </div>
       </main>
 

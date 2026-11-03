@@ -1,4 +1,5 @@
-import { type GameDefinition, type GameCategory, type GameResourcesDeclaration } from '../types/game';
+import type React from 'react';
+import { type GameDefinition, type GameCategory, type GameInstanceProps, type GameResourcesDeclaration } from '../types/game';
 
 type GameModule = Record<string, unknown>;
 
@@ -11,6 +12,7 @@ function isGameDefinition(value: unknown): value is GameDefinition {
 }
 
 const gameModules = import.meta.glob<GameModule>('./*/index.{ts,tsx}', { eager: true });
+const componentLoaders = import.meta.glob<GameModule>('./*/index.{ts,tsx}');
 const resourceLoaders = import.meta.glob<GameModule>('./*/resources.ts');
 
 export const ALL_GAMES: GameDefinition[] = Object.values(gameModules)
@@ -23,6 +25,18 @@ export async function loadGameResources(gameId: string): Promise<GameResourcesDe
   const module = await loader();
   const resources = module.resources;
   return resources && typeof resources === 'object' ? resources as GameResourcesDeclaration : undefined;
+}
+
+export async function loadGameComponent(game: GameDefinition): Promise<React.ComponentType<GameInstanceProps>> {
+  const loader = Object.entries(componentLoaders).find(([path]) => path.startsWith(`./${game.id}/index.`))?.[1];
+  if (!loader) return game.Component;
+
+  const module = await loader();
+  const definition = Object.values(module).find(isGameDefinition);
+  if (!definition) {
+    throw new Error(`No se encontró la definición del juego "${game.id}".`);
+  }
+  return definition.Component;
 }
 
 export function getAllGames(): GameDefinition[] {
