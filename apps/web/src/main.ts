@@ -29,6 +29,7 @@ import {
   createGradeRecord,
   createNewsArticle,
   createStudyGroup,
+  updateStudyGroupStatus,
   dashboardRoleTitle,
   getDashboardSummary,
   askTutor,
@@ -810,6 +811,11 @@ function renderModule(module: ModuleData): string {
   const isGames = module.id === "juegos";
   if (module.id === "cursos") return renderCoursesModule(module);
   if (module.id === "tutorias") return renderTutoringModule(module);
+  if ((module.id === "bienestar" || module.id === "espacios") && visibleRole() === "admin") {
+    return renderManagementModule("events", module.id === "bienestar" ? "Administrar bienestar" : "Administrar espacios", module.id === "bienestar"
+      ? "Publica, programa y retira actividades de bienestar para toda la comunidad."
+      : "Gestiona los espacios, horarios y actividades disponibles del campus.");
+  }
   if (module.id === "actividades" && visibleRole() === "student") return renderActivitiesModule(module);
   if (module.id === "comunidades" && visibleRole() === "student") {
     return renderManagementModule("join", "Únete a un grupo", "Ingresa el código que te compartió tu docente y comienza a participar.");
@@ -876,7 +882,7 @@ function renderModule(module: ModuleData): string {
         <div class="ps-management-form-heading"><strong>${isGroups ? "Nuevo grupo" : isNews ? "Nueva publicación" : "Nuevo evento"}</strong><span>Los cambios se guardan en el campus</span></div>
         <label>${isGroups || isNews ? (isGroups ? "Nombre del grupo" : "Título") : "Título del evento"}<input name="title" required maxlength="120" placeholder="${isGroups ? "Ej. Anatomía Secundaria 01" : isNews ? "Título de la publicación" : "Ej. Taller de robótica"}" /></label>
         <label>Descripción<textarea name="description" required maxlength="500" placeholder="${isGroups ? "Describe el propósito del grupo" : isNews ? "Resumen visible en el campus" : "Describe la actividad y sus objetivos"}"></textarea></label>
-        ${isGroups ? `<div class="ps-management-grid"><label>Código<input name="code" required pattern="[A-Za-z0-9-]{4,20}" placeholder="ANAT-01" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option>Universitaria</option></select></label></div>` : isNews ? `<label>Contenido<textarea name="body" required maxlength="5000" placeholder="Escribe el contenido completo"></textarea></label>` : `<div class="ps-management-grid"><label>Lugar<input name="location" required maxlength="120" placeholder="Auditorio principal" /></label><label>Aforo<input name="capacity" type="number" min="1" max="10000" placeholder="100" /></label><label>Inicio<input name="startsAt" type="datetime-local" required /></label><label>Fin<input name="endsAt" type="datetime-local" /></label></div>`}
+        ${isGroups ? `<div class="ps-management-grid"><label>Código<input name="code" required pattern="[A-Za-z0-9-]{4,20}" placeholder="ANAT-01" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option>Universitaria</option></select></label></div>` : isNews ? `<label>Contenido<textarea name="body" required maxlength="5000" placeholder="Escribe el contenido completo"></textarea></label><div class="ps-management-grid"><label>Imagen destacada<input name="coverImageUrl" type="url" placeholder="https://..." /></label><label>Video o enlace<input name="mediaLinks" type="url" placeholder="https://youtube.com/..." /></label></div>` : `<div class="ps-management-grid"><label>Lugar<input name="location" required maxlength="120" placeholder="Auditorio principal" /></label><label>Aforo<input name="capacity" type="number" min="1" max="10000" placeholder="100" /></label><label>Inicio<input name="startsAt" type="datetime-local" required /></label><label>Fin<input name="endsAt" type="datetime-local" /></label></div><label><input name="publishAsNews" type="checkbox" /> Publicar también en Noticias</label>`}
         <button class="ps-create-button" type="submit">${isGroups ? "Crear grupo" : isNews ? "Publicar noticia" : "Crear evento"} <span>↗</span></button>
         <p class="ps-management-feedback" id="management-feedback" role="status"></p>
       </form>
@@ -996,7 +1002,7 @@ function wireModule(module: ModuleData): void {
     wireManagementModule("news");
     return;
   }
-  if (module.id === "actividades" && visibleRole() !== "student") {
+  if (["actividades", "bienestar", "espacios"].includes(module.id) && visibleRole() !== "student") {
     wireManagementModule("events");
     return;
   }
@@ -1297,10 +1303,17 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
     try {
       if (type === "groups") {
         const groups = await listStudyGroups();
-        list.innerHTML = groups.length ? groups.map((group) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${group.educationalLevel ?? "Campus"} · ${group.status ?? "active"}</span><h2>${escapeHTML(group.name)}</h2><p>${escapeHTML(group.description ?? "Sin descripción")}</p></div><strong>${escapeHTML(group.code)}</strong></article>`).join("") : `<p class="ps-empty-state">Todavía no hay grupos creados.</p>`;
+        list.innerHTML = groups.length ? groups.map((group) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${group.educationalLevel ?? "Campus"} · ${group.status ?? "active"}</span><h2>${escapeHTML(group.name)}</h2><p>${escapeHTML(group.description ?? "Sin descripción")}</p><small>Código: <strong>${escapeHTML(group.code)}</strong> · Responsable: ${escapeHTML(group.teacherId)}</small></div>${visibleRole() !== "student" ? `<div class="ps-inline-actions"><button class="ps-secondary-button" type="button" data-group-status="${group.id}" data-next-status="${group.status === "archived" ? "active" : "archived"}">${group.status === "archived" ? "Reactivar" : "Archivar"}</button></div>` : ""}</article>`).join("") : `<p class="ps-empty-state">Todavía no hay grupos creados.</p>`;
+        list.querySelectorAll<HTMLButtonElement>("[data-group-status]").forEach((button) => button.addEventListener("click", () => {
+          button.disabled = true;
+          void updateStudyGroupStatus(button.dataset.groupStatus ?? "", button.dataset.nextStatus as "active" | "archived").then(renderList).catch((error: unknown) => {
+            button.disabled = false;
+            feedback.textContent = error instanceof Error ? error.message : "No se pudo actualizar el grupo.";
+          });
+        }));
       } else if (type === "news") {
         const articles = await listNewsArticles();
-        list.innerHTML = articles.length ? articles.map((article) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${article.status ?? "draft"} · v${article.version ?? 1}</span><h2>${escapeHTML(article.title)}</h2><p>${escapeHTML(article.summary ?? "")}</p></div><time>${article.publishedAt ? new Date(article.publishedAt).toLocaleDateString("es-CO") : "Borrador"}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay publicaciones.</p>`;
+        list.innerHTML = articles.length ? articles.map((article) => `<article class="ps-management-card">${article.coverImageUrl ? `<img class="ps-news-cover" src="${escapeHTML(article.coverImageUrl)}" alt="" loading="lazy" />` : ""}<div><span class="ps-feed-tag">${article.status ?? "draft"} · v${article.version ?? 1}</span><h2>${escapeHTML(article.title)}</h2><p>${escapeHTML(article.summary ?? "")}</p>${article.mediaLinks?.[0] ? `<a class="ps-inline-link" href="${escapeHTML(article.mediaLinks[0])}" target="_blank" rel="noreferrer">Abrir recurso multimedia ↗</a>` : ""}</div><time>${article.publishedAt ? new Date(article.publishedAt).toLocaleDateString("es-CO") : "Borrador"}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay publicaciones.</p>`;
       } else if (type === "events") {
         const events = await listCampusEvents();
         list.innerHTML = events.length ? events.map((event) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${event.status ?? "draft"} · ${escapeHTML(event.location ?? "Campus")}</span><h2>${escapeHTML(event.title)}</h2><p>${escapeHTML(event.description ?? "Sin descripción")}</p></div><time>${new Date(event.startsAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay eventos programados.</p>`;
@@ -1434,6 +1447,8 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
         summary: String(data.get("description") ?? "").trim(),
         body: String(data.get("body") ?? "").trim(),
         authorId: authSession!.user.id,
+        coverImageUrl: String(data.get("coverImageUrl") ?? "").trim() || undefined,
+        mediaLinks: String(data.get("mediaLinks") ?? "").trim() ? [String(data.get("mediaLinks")).trim()] : [],
         })
         : createCampusEvent({
           title: String(data.get("title") ?? "").trim(),
@@ -1444,7 +1459,15 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
           organizerId: authSession!.user.id,
           capacity: data.get("capacity") ? Number(data.get("capacity")) : undefined,
         });
-    void operation.then(() => {
+    void operation.then(async () => {
+      if (type === "events" && data.get("publishAsNews") === "on") {
+        await createNewsArticle({
+          title: String(data.get("title") ?? "").trim(),
+          summary: String(data.get("description") ?? "").trim(),
+          body: String(data.get("description") ?? "").trim(),
+          authorId: authSession!.user.id,
+        });
+      }
       feedback.textContent = type === "groups" ? "Grupo creado correctamente." : type === "news" ? "Noticia publicada correctamente." : "Evento creado correctamente.";
       form.reset();
       void renderList();

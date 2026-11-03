@@ -755,6 +755,7 @@
 .ps-data-card .ps-create-button { justify-self: start; }
 .ps-data-card-muted { box-shadow: none; background: #f8fbfb; }
 .ps-course-cover { display: block; width: calc(100% + 36px); height: 130px; margin: -18px -18px 8px; object-fit: cover; border-bottom: 1px solid var(--line); }
+.ps-news-cover { display: block; width: 110px; height: 70px; border-radius: 8px; object-fit: cover; }
 .ps-course-materials { color: #4a6872; font-size: 11px; }
 .ps-inline-link { display: inline-flex; margin: 0 0 2px; color: #147d91; font-size: 11px; font-weight: 800; text-decoration: none; }
 .ps-inline-link:hover { text-decoration: underline; }

@@ -204,6 +204,11 @@ export async function createStudyGroup(input: {
   if (result.errors?.length) throw new Error("No se pudo crear el grupo.");
 }
 
+export async function updateStudyGroupStatus(id: string, status: "active" | "archived" | "pending"): Promise<void> {
+  const result = await client.models.StudyGroup.update({ id, status });
+  if (result.errors?.length) throw new Error("No se pudo actualizar el estado del grupo.");
+}
+
 export async function listNewsArticles(): Promise<Schema["NewsArticle"]["type"][]> {
   const result = await client.models.NewsArticle.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar las publicaciones.");
@@ -215,6 +220,9 @@ export async function createNewsArticle(input: {
   summary: string;
   body: string;
   authorId: string;
+  coverImageUrl?: string;
+  mediaLinks?: string[];
+  sourceEventId?: string;
 }): Promise<void> {
   const result = await client.models.NewsArticle.create({
     ...input,

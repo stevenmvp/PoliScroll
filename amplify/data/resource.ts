@@ -12,6 +12,8 @@ const schema = a.schema({
       educationalLevel: a.enum(["Primaria", "Secundaria", "Universitaria"]),
       institution: a.string(),
       academicProgram: a.string(),
+      meetingUrl: a.string(),
+      resourcesUrl: a.string(),
       interests: a.string().array(),
     })
     .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
@@ -96,6 +98,9 @@ const schema = a.schema({
       publishedAt: a.datetime(),
       tags: a.string().array(),
       version: a.integer().default(1),
+      coverImageUrl: a.string(),
+      mediaLinks: a.string().array(),
+      sourceEventId: a.string(),
     })
     .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 
