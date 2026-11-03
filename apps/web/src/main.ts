@@ -364,6 +364,7 @@ let authFeedbackKind: "error" | "success" = "error";
 let authBusy = false;
 let dashboardSummary: DashboardSummary | null = null;
 let chatConversationId: string | null = null;
+let roleWorkspaceCollapsed = true;
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
@@ -739,10 +740,10 @@ function renderRoleWorkspace(): string {
       };
 
   const summary = dashboardSummary;
-  return `<section class="ps-role-workspace" aria-label="${workspace.eyebrow}">
-    <div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>${workspace.eyebrow}</p><h2>${workspace.title}</h2><p>${workspace.description}</p><strong class="ps-role-title">${dashboardRoleTitle(role)}</strong></div>
-    <div class="ps-role-actions">${workspace.actions.map((action, index) => `<button type="button" class="ps-role-action" data-role-action="${index}"><span>0${index + 1}</span>${action}<b aria-hidden="true">↗</b></button>`).join("")}</div>
-    <div class="ps-role-metrics" aria-label="Resumen de datos">${summary ? [summary.primaryLabel, summary.secondaryLabel, summary.tertiaryLabel, summary.pendingLabel].map((label, index) => `<span><small>${label}</small><strong>${[summary.primaryValue, summary.secondaryValue, summary.tertiaryValue, summary.pendingValue][index]}</strong></span>`).join("") : `<span class="ps-metrics-loading">Sincronizando datos del campus…</span>`}</div>
+  return `<section class="ps-role-workspace${roleWorkspaceCollapsed ? " is-collapsed" : ""}" aria-label="${workspace.eyebrow}">
+    <div class="ps-role-copy"><div class="ps-role-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>${workspace.eyebrow}</p><h2>${workspace.title}</h2></div><button class="ps-role-collapse" type="button" data-role-workspace-toggle aria-expanded="${!roleWorkspaceCollapsed}" aria-controls="role-workspace-details">${roleWorkspaceCollapsed ? "Mostrar resumen" : "Ocultar resumen"} <span aria-hidden="true">${roleWorkspaceCollapsed ? "↓" : "↑"}</span></button></div><p>${workspace.description}</p><strong class="ps-role-title">${dashboardRoleTitle(role)}</strong></div>
+    <div class="ps-role-details" id="role-workspace-details"><div class="ps-role-actions">${workspace.actions.map((action, index) => `<button type="button" class="ps-role-action" data-role-action="${index}"><span>0${index + 1}</span>${action}<b aria-hidden="true">↗</b></button>`).join("")}</div>
+    <div class="ps-role-metrics" aria-label="Resumen de datos">${summary ? [summary.primaryLabel, summary.secondaryLabel, summary.tertiaryLabel, summary.pendingLabel].map((label, index) => `<span><small>${label}</small><strong>${[summary.primaryValue, summary.secondaryValue, summary.tertiaryValue, summary.pendingValue][index]}</strong></span>`).join("") : `<span class="ps-metrics-loading">Sincronizando datos del campus…</span>`}</div></div>
   </section>`;
 }
 
@@ -891,6 +892,10 @@ function renderFeedItems(module: ModuleData): void {
 }
 
 function wireHome(): void {
+  document.querySelector<HTMLButtonElement>("[data-role-workspace-toggle]")?.addEventListener("click", () => {
+    roleWorkspaceCollapsed = !roleWorkspaceCollapsed;
+    render();
+  });
   const deck = document.querySelector<HTMLDivElement>("#module-deck");
   if (!deck) return;
   deck.scrollTop = activeDeckIndex * deck.clientHeight;

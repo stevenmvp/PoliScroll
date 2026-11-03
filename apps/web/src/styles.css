@@ -690,9 +690,13 @@
 .ps-auth-links button { border: 0; padding: 0; background: transparent; color: #08799a; font-size: 11px; font-weight: 800; text-decoration: underline; }
 .ps-auth-loader { display: block; width: 22px; height: 22px; margin-top: 22px; border: 3px solid #d5e8eb; border-top-color: var(--cyan); border-radius: 50%; animation: ps-spin .8s linear infinite; }
 .ps-role-badge { border: 1px solid #c7e8ee; border-radius: 14px; padding: 5px 9px; background: #effcff; color: #08799a; font-size: 10px; font-weight: 900; }
-.ps-role-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); gap: 16px 24px; align-items: center; flex: 0 0 auto; margin: 0 0 14px; border: 1px solid #bfd7dc; border-radius: 15px; padding: 14px 18px; background: rgba(255,255,255,.82); box-shadow: 0 8px 0 rgba(15,56,90,.04); }
+.ps-role-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); gap: 16px 24px; align-items: center; flex: 0 0 auto; margin: 0 0 14px; border: 1px solid #bfd7dc; border-radius: 15px; padding: 14px 18px; background: rgba(255,255,255,.82); box-shadow: 0 8px 0 rgba(15,56,90,.04); transition: padding .22s ease, margin .22s ease; }
 .ps-role-workspace h2 { margin: 0 0 5px; color: var(--blue); font-size: clamp(25px, 3.2vw, 36px); letter-spacing: -.045em; }
-.ps-role-workspace > div:first-child > p:last-child { max-width: 470px; margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.ps-role-copy > p { max-width: 470px; margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.ps-role-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.ps-role-collapse { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; background: #fff; color: var(--blue); font-size: 10px; font-weight: 800; }
+.ps-role-collapse:hover { border-color: var(--cyan); }
+.ps-role-details { display: grid; gap: 12px; }
 .ps-role-title { display: block; margin-top: 8px; color: var(--cyan); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .ps-role-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .ps-role-action { display: grid; gap: 7px; min-height: 66px; border: 1px solid #c8dce0; border-radius: 9px; padding: 9px; background: #fff; color: var(--blue); font-size: 11px; font-weight: 900; text-align: left; }
@@ -703,6 +707,10 @@
 .ps-role-metrics span { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 9px; }
 .ps-role-metrics small { color: var(--ink-soft); font-size: 9px; font-weight: 900; text-transform: uppercase; }
 .ps-role-metrics strong { color: var(--blue); font-size: 24px; }
+.ps-role-workspace.is-collapsed { grid-template-columns: 1fr; gap: 0; padding-block: 9px; }
+.ps-role-workspace.is-collapsed .ps-role-copy > p, .ps-role-workspace.is-collapsed .ps-role-title { display: none; }
+.ps-role-workspace.is-collapsed .ps-role-copy h2 { margin-bottom: 0; font-size: clamp(20px, 2.3vw, 28px); }
+.ps-role-workspace.is-collapsed .ps-role-details { display: none; }
 .ps-metrics-loading { grid-column: 1 / -1; color: var(--ink-soft); font-size: 11px; }
 .ps-management-form { display: grid; gap: 12px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: #fff; }
 .ps-management-form-heading { display: flex; justify-content: space-between; gap: 12px; color: var(--blue); font-size: 13px; }
