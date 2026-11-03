@@ -141,3 +141,58 @@ export async function createCampusEvent(input: {
   });
   if (result.errors?.length) throw new Error("No se pudo crear el evento.");
 }
+
+export async function findStudyGroupByCode(code: string): Promise<Schema["StudyGroup"]["type"] | null> {
+  const result = await client.models.StudyGroup.list({
+    filter: { code: { eq: code.trim().toUpperCase() }, status: { eq: "active" } },
+    limit: 1,
+  });
+  if (result.errors?.length) throw new Error("No se pudo buscar el grupo.");
+  return result.data[0] ?? null;
+}
+
+export async function joinStudyGroup(groupId: string, userId: string): Promise<void> {
+  const result = await client.models.GroupMembership.create({
+    groupId,
+    userId,
+    role: "student",
+    status: "active",
+    joinedAt: new Date().toISOString(),
+  });
+  if (result.errors?.length) throw new Error("No se pudo completar la inscripción.");
+}
+
+export async function createChatConversation(input: {
+  title: string;
+  createdBy: string;
+}): Promise<string> {
+  const result = await client.models.ChatConversation.create({
+    title: input.title,
+    kind: "support",
+    createdBy: input.createdBy,
+    lastMessageAt: new Date().toISOString(),
+    archived: false,
+  });
+  if (result.errors?.length || !result.data?.id) throw new Error("No se pudo iniciar el chat.");
+  return result.data.id;
+}
+
+export async function sendChatMessage(input: {
+  conversationId: string;
+  senderId: string;
+  body: string;
+}): Promise<void> {
+  const sentAt = new Date().toISOString();
+  const result = await client.models.ChatMessage.create({
+    ...input,
+    sentAt,
+  });
+  if (result.errors?.length) throw new Error("No se pudo enviar el mensaje.");
+  const conversation = await client.models.ChatConversation.get({ id: input.conversationId });
+  if (conversation.data) {
+    await client.models.ChatConversation.update({
+      id: input.conversationId,
+      lastMessageAt: sentAt,
+    });
+  }
+}

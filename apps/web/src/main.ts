@@ -21,13 +21,17 @@ import {
 } from "./services/data";
 import {
   createCampusEvent,
+  createChatConversation,
   createNewsArticle,
   createStudyGroup,
   dashboardRoleTitle,
   getDashboardSummary,
+  findStudyGroupByCode,
+  joinStudyGroup,
   listCampusEvents,
   listNewsArticles,
   listStudyGroups,
+  sendChatMessage,
   type DashboardSummary,
 } from "./services/platform";
 
@@ -350,6 +354,7 @@ let authFeedback = "";
 let authFeedbackKind: "error" | "success" = "error";
 let authBusy = false;
 let dashboardSummary: DashboardSummary | null = null;
+let chatConversationId: string | null = null;
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
@@ -393,8 +398,8 @@ function render(): void {
         <button class="ps-bottom-link${screen === "module" && selectedModuleId === "perfil" ? " is-active" : ""}" type="button" data-bottom-module="perfil" aria-current="${screen === "module" && selectedModuleId === "perfil" ? "page" : "false"}"><span class="ps-bottom-icon" aria-hidden="true">♙</span><span>Perfil</span></button>
       </nav>
       <dialog class="ps-chat-dialog" id="polichat-dialog" aria-labelledby="polichat-title">
-        <div class="ps-chat-heading"><div class="ps-chat-brand"><span class="ps-chat-small-mark" aria-hidden="true">P</span><div><h2 id="polichat-title">PoliChat</h2><span>Asistente del campus · demo</span></div></div><button class="ps-dialog-close" id="close-polichat" type="button" aria-label="Cerrar PoliChat">×</button></div>
-        <div class="ps-chat-messages" id="polichat-messages" aria-live="polite"><p class="ps-chat-message is-bot">¡Hola! Puedo orientarte para encontrar actividades, cursos y servicios del campus.</p></div>
+        <div class="ps-chat-heading"><div class="ps-chat-brand"><span class="ps-chat-small-mark" aria-hidden="true">P</span><div><h2 id="polichat-title">PoliChat</h2><span>Mensajería del campus · persistente</span></div></div><button class="ps-dialog-close" id="close-polichat" type="button" aria-label="Cerrar PoliChat">×</button></div>
+        <div class="ps-chat-messages" id="polichat-messages" aria-live="polite"><p class="ps-chat-message is-bot">Escribe tu mensaje y quedará guardado en tu conversación del campus.</p></div>
         <form class="ps-chat-form" id="polichat-form"><input id="polichat-input" type="text" maxlength="240" placeholder="Escribe tu pregunta" aria-label="Escribe tu pregunta" required /><button type="submit" aria-label="Enviar mensaje">↑</button></form>
       </dialog>
       <div class="ps-toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -435,10 +440,28 @@ function render(): void {
     const text = input?.value.trim();
     if (!input || !messages || !text) return;
 
-    appendChatMessage(messages, text, "is-user");
     input.value = "";
-    appendChatMessage(messages, "Estoy en modo demo. Explora Actividades, Cursos o Bienestar desde el menú inferior.", "is-bot");
-    messages.scrollTop = messages.scrollHeight;
+    appendChatMessage(messages, text, "is-user");
+    const send = async (): Promise<void> => {
+      try {
+        if (!chatConversationId) {
+          chatConversationId = await createChatConversation({
+            title: `Conversación de ${authSession?.user.displayName ?? "usuario"}`,
+            createdBy: authSession!.user.id,
+          });
+        }
+        await sendChatMessage({
+          conversationId: chatConversationId,
+          senderId: authSession!.user.id,
+          body: text,
+        });
+        appendChatMessage(messages, "Mensaje guardado en tu conversación del campus.", "is-bot");
+        messages.scrollTop = messages.scrollHeight;
+      } catch (error) {
+        appendChatMessage(messages, error instanceof Error ? error.message : "No se pudo guardar el mensaje.", "is-bot");
+      }
+    };
+    void send();
   });
 
   if (screen === "home") wireHome();
@@ -712,6 +735,9 @@ function renderRoleWorkspace(): string {
 function renderModule(module: ModuleData): string {
   const isActivities = module.id === "actividades";
   const isGames = module.id === "juegos";
+  if (module.id === "comunidades" && authSession?.user.role === "student") {
+    return renderManagementModule("join", "Únete a un grupo", "Ingresa el código que te compartió tu docente y comienza a participar.");
+  }
   if (module.id === "comunidades" && authSession && authSession.user.role !== "student") {
     return renderManagementModule("groups", "Grupos de estudio", "Crea grupos, organiza cohortes y acompaña el trabajo de tus estudiantes.");
   }
@@ -728,10 +754,21 @@ function renderModule(module: ModuleData): string {
     </section>`;
   }
 
-  function renderManagementModule(type: "groups" | "news" | "events", title: string, description: string): string {
+  function renderManagementModule(type: "groups" | "news" | "events" | "join", title: string, description: string): string {
     const isGroups = type === "groups";
     const isNews = type === "news";
+    const isJoin = type === "join";
     const formId = isGroups ? "group-form" : isNews ? "news-form" : "event-form";
+    if (isJoin) return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Comunidades <span class="ps-breadcrumb">/ Inscripción</span></p><h1 id="module-title">${title}<span class="ps-heading-period">.</span></h1><p class="ps-module-description">${description}</p></div><div class="ps-module-total"><span>Acceso con código</span><strong>+</strong></div></div>
+      <form class="ps-management-form" id="join-form">
+        <div class="ps-management-form-heading"><strong>Buscar grupo</strong><span>Solicita el código a tu docente</span></div>
+        <label>Código del grupo<input name="code" required maxlength="20" pattern="[A-Za-z0-9-]{4,20}" placeholder="ANAT-01" /></label>
+        <button class="ps-create-button" type="submit">Buscar grupo <span>↗</span></button>
+        <p class="ps-management-feedback" id="management-feedback" role="status"></p>
+      </form>
+      <div class="ps-management-list" id="management-list"><p class="ps-empty-state">Busca un grupo para comenzar.</p></div>
+    </section>`;
     return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
       <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Gestión <span class="ps-breadcrumb">/ ${title}</span></p><h1 id="module-title">${title}<span class="ps-heading-period">.</span></h1><p class="ps-module-description">${description}</p></div><div class="ps-module-total"><span>${isGroups ? "Gestión académica" : isNews ? "Publicación" : "Agenda"}</span><strong>+</strong></div></div>
       <form class="ps-management-form" id="${formId}">
@@ -851,6 +888,10 @@ function wireHome(): void {
 }
 
 function wireModule(module: ModuleData): void {
+  if (module.id === "comunidades" && authSession?.user.role === "student") {
+    wireManagementModule("join");
+    return;
+  }
   if (module.id === "comunidades" && authSession?.user.role !== "student") {
     wireManagementModule("groups");
     return;
@@ -875,8 +916,8 @@ function wireModule(module: ModuleData): void {
   renderFeedItems(module);
 }
 
-function wireManagementModule(type: "groups" | "news" | "events"): void {
-  const form = document.querySelector<HTMLFormElement>(type === "groups" ? "#group-form" : type === "news" ? "#news-form" : "#event-form");
+function wireManagementModule(type: "groups" | "news" | "events" | "join"): void {
+  const form = document.querySelector<HTMLFormElement>(type === "groups" ? "#group-form" : type === "news" ? "#news-form" : type === "events" ? "#event-form" : "#join-form");
   const list = document.querySelector<HTMLDivElement>("#management-list");
   const feedback = document.querySelector<HTMLParagraphElement>("#management-feedback");
   if (!form || !list || !feedback || !authSession) return;
@@ -889,9 +930,11 @@ function wireManagementModule(type: "groups" | "news" | "events"): void {
       } else if (type === "news") {
         const articles = await listNewsArticles();
         list.innerHTML = articles.length ? articles.map((article) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${article.status ?? "draft"} · v${article.version ?? 1}</span><h2>${escapeHTML(article.title)}</h2><p>${escapeHTML(article.summary ?? "")}</p></div><time>${article.publishedAt ? new Date(article.publishedAt).toLocaleDateString("es-CO") : "Borrador"}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay publicaciones.</p>`;
-      } else {
+      } else if (type === "events") {
         const events = await listCampusEvents();
         list.innerHTML = events.length ? events.map((event) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${event.status ?? "draft"} · ${escapeHTML(event.location ?? "Campus")}</span><h2>${escapeHTML(event.title)}</h2><p>${escapeHTML(event.description ?? "Sin descripción")}</p></div><time>${new Date(event.startsAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay eventos programados.</p>`;
+      } else {
+        list.innerHTML = `<p class="ps-empty-state">Busca un grupo para comenzar.</p>`;
       }
     } catch (error) {
       feedback.textContent = error instanceof Error ? error.message : "No se pudo cargar la información.";
@@ -903,6 +946,26 @@ function wireManagementModule(type: "groups" | "news" | "events"): void {
     event.preventDefault();
     const data = new FormData(form);
     feedback.textContent = "Guardando…";
+    if (type === "join") {
+      const code = String(data.get("code") ?? "").trim().toUpperCase();
+      feedback.textContent = "Buscando grupo…";
+      void findStudyGroupByCode(code).then((group) => {
+        if (!group) {
+          feedback.textContent = "No encontramos un grupo activo con ese código.";
+          list.innerHTML = "";
+          return;
+        }
+        list.innerHTML = `<article class="ps-management-card"><div><span class="ps-feed-tag">${group.educationalLevel ?? "Campus"} · Grupo activo</span><h2>${escapeHTML(group.name)}</h2><p>${escapeHTML(group.description ?? "Sin descripción")}</p></div><button class="ps-create-button" id="join-group-button" type="button">Inscribirme <span>↗</span></button></article>`;
+        document.querySelector<HTMLButtonElement>("#join-group-button")?.addEventListener("click", () => {
+          feedback.textContent = "Inscribiendo…";
+          void joinStudyGroup(group.id, authSession!.user.id).then(() => {
+            feedback.textContent = "Te inscribiste correctamente al grupo.";
+            list.innerHTML = `<p class="ps-empty-state">Grupo agregado a tu recorrido académico.</p>`;
+          }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo completar la inscripción."; });
+        });
+      }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo buscar el grupo."; });
+      return;
+    }
     const operation = type === "groups"
       ? createStudyGroup({
         name: String(data.get("title") ?? "").trim(),

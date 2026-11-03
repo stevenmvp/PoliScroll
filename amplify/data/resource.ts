@@ -55,7 +55,7 @@ const schema = a.schema({
       educationalLevel: a.enum(["Primaria", "Secundaria", "Universitaria"]),
       academicProgram: a.string(),
     })
-    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+    .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 
   GroupMembership: a
     .model({
