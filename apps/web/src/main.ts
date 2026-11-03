@@ -40,6 +40,7 @@ import {
   listCourses,
   listCourseEnrollments,
   listAuditLogs,
+  listSupportTickets,
   listActivitySessions,
   listGradeRecords,
   listNewsArticles,
@@ -52,6 +53,7 @@ import {
   updateUserProfileStatus,
   deleteUserProfile,
   archiveNewsArticle,
+  updateSupportTicket,
   listArcadeGameConfigs,
   upsertArcadeGameConfig,
   markChatRead,
@@ -1177,7 +1179,32 @@ function wireTutoringModule(): void {
 }
 
 function renderAdminModule(): string {
-  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Control y auditoría</p><h1 id="module-title">Centro de control.</h1><p class="ps-module-description">Administra usuarios, publicaciones, juegos y operaciones del campus desde un solo lugar.</p></div></div><form class="ps-management-form" id="admin-news-form"><div class="ps-management-form-heading"><strong>Publicar noticia</strong><span>Visible para la comunidad</span></div><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Resumen<input name="summary" maxlength="180" /></label></div><label>Contenido<textarea name="body" required maxlength="2000"></textarea></label><button class="ps-create-button" type="submit">Publicar noticia <span>↗</span></button><p class="ps-management-feedback" id="admin-feedback" role="status"></p></form><div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong><span>Estado y acciones</span></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Configuración del arcade</strong><span>Disponibilidad, niveles y Frenesí</span></div><div class="ps-management-list" id="admin-games-list"><p class="ps-empty-state">Cargando juegos…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Noticias publicadas</strong><span>Publicar o retirar</span></div><div class="ps-management-list" id="admin-news-list"><p class="ps-empty-state">Cargando noticias…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong><span>Últimos cambios</span></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section></div></section>`;
+  return `<section class="ps-module-view ps-management-view ps-admin-control-center" aria-labelledby="module-title">
+    <div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Operaciones</p><h1 id="module-title">Centro de control.</h1><p class="ps-module-description">Gestiona información, usuarios, contenido, soporte y operación del campus desde un espacio diseñado para administración.</p></div></div>
+    <div class="ps-admin-layout">
+      <aside class="ps-admin-sidebar" aria-label="Secciones administrativas">
+        <p class="ps-admin-sidebar-title">Control del campus</p>
+        <button class="is-active" type="button" data-admin-panel="overview">Resumen general</button>
+        <button type="button" data-admin-panel="users">Usuarios y permisos</button>
+        <button type="button" data-admin-panel="content">Contenido y difusión</button>
+        <button type="button" data-admin-panel="academic">Grupos y cursos</button>
+        <button type="button" data-admin-panel="operations">Bienestar y espacios</button>
+        <button type="button" data-admin-panel="support">Atención y tickets</button>
+        <button type="button" data-admin-panel="arcade">PoliArcade</button>
+        <button type="button" data-admin-panel="audit">Auditoría</button>
+      </aside>
+      <div class="ps-admin-workspace">
+        <section class="ps-admin-panel-view is-active" data-admin-view="overview"><div class="ps-management-form-heading"><strong>Resumen operativo</strong><span>Selecciona una sección para administrar</span></div><div class="ps-admin-kpi-grid"><button type="button" data-admin-panel="users"><strong>Usuarios</strong><span>Altas, estados y registros</span></button><button type="button" data-admin-panel="academic"><strong>Académico</strong><span>Grupos, cursos y actividades</span></button><button type="button" data-admin-panel="support"><strong>Soporte</strong><span>Tickets y atención</span></button><button type="button" data-admin-panel="audit"><strong>Auditoría</strong><span>Trazabilidad de cambios</span></button></div></section>
+        <section class="ps-admin-panel-view" data-admin-view="users"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong><span>Estado y acciones</span></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section>
+        <section class="ps-admin-panel-view" data-admin-view="content"><form class="ps-management-form" id="admin-news-form"><div class="ps-management-form-heading"><strong>Nueva publicación</strong><span>Difusión institucional</span></div><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Resumen<input name="summary" maxlength="180" /></label><label>Imagen destacada<input name="coverImageUrl" type="url" placeholder="https://..." /></label><label>Video o enlace<input name="mediaLinks" type="url" placeholder="https://youtube.com/..." /></label></div><label>Contenido<textarea name="body" required maxlength="5000"></textarea></label><button class="ps-create-button" type="submit">Publicar noticia <span>↗</span></button><p class="ps-management-feedback" id="admin-feedback" role="status"></p></form><div class="ps-management-list" id="admin-news-list"><p class="ps-empty-state">Cargando publicaciones…</p></div></section>
+        <section class="ps-admin-panel-view" data-admin-view="academic"><div class="ps-management-form-heading"><strong>Grupos y cursos</strong><span>Accesos rápidos de gestión</span></div><div class="ps-admin-link-grid"><button type="button" data-bottom-module="comunidades">Administrar grupos de estudio ↗</button><button type="button" data-bottom-module="cursos">Administrar cursos ↗</button><button type="button" data-bottom-module="actividades">Administrar actividades ↗</button></div></section>
+        <section class="ps-admin-panel-view" data-admin-view="operations"><div class="ps-management-form-heading"><strong>Operaciones del campus</strong><span>Recursos y agenda institucional</span></div><div class="ps-admin-link-grid"><button type="button" data-bottom-module="bienestar">Gestionar bienestar ↗</button><button type="button" data-bottom-module="espacios">Gestionar espacios ↗</button><button type="button" data-bottom-module="tutorias">Gestionar tutorías ↗</button></div></section>
+        <section class="ps-admin-panel-view" data-admin-view="support"><div class="ps-management-form-heading"><strong>Atención y tickets</strong><span>Casos abiertos y seguimiento</span></div><div class="ps-management-list" id="admin-tickets-list"><p class="ps-empty-state">Cargando tickets…</p></div></section>
+        <section class="ps-admin-panel-view" data-admin-view="arcade"><div class="ps-management-form-heading"><strong>Configuración de PoliArcade</strong><span>Disponibilidad, niveles y Frenesí</span></div><div class="ps-management-list" id="admin-games-list"><p class="ps-empty-state">Cargando juegos…</p></div></section>
+        <section class="ps-admin-panel-view" data-admin-view="audit"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong><span>Últimos cambios</span></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section>
+      </div>
+    </div>
+  </section>`;
 }
 
 function renderStudentProgressModule(): string {
@@ -1193,8 +1220,15 @@ function wireAdminModule(): void {
   const news = document.querySelector<HTMLDivElement>("#admin-news-list");
   const games = document.querySelector<HTMLDivElement>("#admin-games-list");
   const audit = document.querySelector<HTMLDivElement>("#admin-audit-list");
+  const tickets = document.querySelector<HTMLDivElement>("#admin-tickets-list");
   const feedback = document.querySelector<HTMLParagraphElement>("#admin-feedback");
   if (!users || !audit || !authSession) return;
+  document.querySelectorAll<HTMLButtonElement>("[data-admin-panel]").forEach((button) => button.addEventListener("click", () => {
+    const panel = button.dataset.adminPanel;
+    if (!panel) return;
+    document.querySelectorAll<HTMLElement>("[data-admin-panel]").forEach((item) => item.classList.toggle("is-active", item === button));
+    document.querySelectorAll<HTMLElement>("[data-admin-view]").forEach((view) => view.classList.toggle("is-active", view.dataset.adminView === panel));
+  }));
   document.querySelector<HTMLFormElement>("#admin-news-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const values = new FormData(event.currentTarget as HTMLFormElement);
@@ -1204,9 +1238,11 @@ function wireAdminModule(): void {
       summary: String(values.get("summary") ?? "").trim(),
       body: String(values.get("body") ?? "").trim(),
       authorId: authSession!.user.id,
+      coverImageUrl: String(values.get("coverImageUrl") ?? "").trim() || undefined,
+      mediaLinks: String(values.get("mediaLinks") ?? "").trim() ? [String(values.get("mediaLinks")).trim()] : [],
     }).then(() => { if (feedback) feedback.textContent = "Noticia publicada."; render(); }).catch((error: unknown) => { if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar la noticia."; });
   });
-  void Promise.all([listUserProfiles(), listAuditLogs(), listNewsArticles(), listArcadeGameConfigs()]).then(([profiles, logs, articles, gameConfigs]) => {
+  void Promise.all([listUserProfiles(), listAuditLogs(), listNewsArticles(), listArcadeGameConfigs(), listSupportTickets()]).then(([profiles, logs, articles, gameConfigs, supportTickets]) => {
     const uniqueProfiles = [...new Map(profiles.map((profile) => [profile.email.toLowerCase(), profile])).values()];
     users.innerHTML = uniqueProfiles.map((profile) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${profile.role ?? "student"} · ${profile.status ?? "active"}</span><h2>${escapeHTML(profile.displayName)}</h2><p>${escapeHTML(profile.email)}</p></div><div class="ps-inline-actions"><button class="ps-secondary-button" type="button" data-user-status="${profile.status === "suspended" ? "active" : "suspended"}" data-user-id="${profile.id}">${profile.status === "suspended" ? "Habilitar" : "Suspender"}</button>${profile.id !== authSession!.user.id ? `<button class="ps-secondary-button" type="button" data-delete-user="${profile.id}">Eliminar registro</button>` : ""}</div></article>`).join("") || `<p class="ps-empty-state">No hay perfiles.</p>`;
     users.querySelectorAll<HTMLButtonElement>("[data-user-status]").forEach((button) => button.addEventListener("click", () => {
@@ -1263,6 +1299,20 @@ function wireAdminModule(): void {
       }));
     }
     audit.innerHTML = logs.slice(0, 20).map((log) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(log.entityType)}</span><h2>${escapeHTML(log.action)}</h2><p>${escapeHTML(log.actorId)}</p></div></article>`).join("") || `<p class="ps-empty-state">No hay auditoría.</p>`;
+    if (tickets) {
+      tickets.innerHTML = supportTickets.length ? supportTickets.map((ticket) => `<details class="ps-admin-table-row"><summary><span>${escapeHTML(ticket.subject)}</span><span class="ps-feed-tag">${ticket.status ?? "open"} · ${ticket.priority ?? "normal"}</span></summary><div class="ps-admin-ticket-detail"><p>${escapeHTML(ticket.description)}</p><small>${escapeHTML(ticket.requesterEmail)} · ${ticket.category ?? "other"}</small><textarea data-ticket-response="${ticket.id}" placeholder="Respuesta para el solicitante">${escapeHTML(ticket.response ?? "")}</textarea><div class="ps-inline-actions"><select data-ticket-status="${ticket.id}"><option value="open" ${ticket.status === "open" ? "selected" : ""}>Abierto</option><option value="in_progress" ${ticket.status === "in_progress" ? "selected" : ""}>En atención</option><option value="resolved" ${ticket.status === "resolved" ? "selected" : ""}>Resuelto</option><option value="closed" ${ticket.status === "closed" ? "selected" : ""}>Cerrado</option></select><button class="ps-secondary-button" type="button" data-save-ticket="${ticket.id}">Guardar atención</button></div></div></details>`).join("") : `<p class="ps-empty-state">No hay tickets de atención.</p>`;
+      tickets.querySelectorAll<HTMLButtonElement>("[data-save-ticket]").forEach((button) => button.addEventListener("click", () => {
+        const id = button.dataset.saveTicket;
+        const response = tickets.querySelector<HTMLTextAreaElement>(`[data-ticket-response="${id}"]`);
+        const status = tickets.querySelector<HTMLSelectElement>(`[data-ticket-status="${id}"]`);
+        if (!id || !response || !status || !authSession) return;
+        button.disabled = true;
+        void updateSupportTicket({ id, status: status.value as "open" | "in_progress" | "resolved" | "closed", assignedTo: authSession.user.id, response: response.value.trim() }).then(() => render()).catch((error: unknown) => {
+          button.disabled = false;
+          if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo guardar la atención.";
+        });
+      }));
+    }
   }).catch((error: unknown) => { users.textContent = error instanceof Error ? error.message : "No se pudo cargar el centro de control."; });
 }
 

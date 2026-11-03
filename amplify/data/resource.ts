@@ -280,6 +280,25 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.groups(["admin"])]),
 
+  SupportTicket: a
+    .model({
+      subject: a.string().required(),
+      description: a.string().required(),
+      requesterId: a.string().required(),
+      requesterEmail: a.string().required(),
+      category: a.enum(["account", "academic", "technical", "wellness", "content", "other"]),
+      priority: a.enum(["low", "normal", "high", "urgent"]),
+      status: a.enum(["open", "in_progress", "resolved", "closed"]),
+      assignedTo: a.string(),
+      response: a.string(),
+      createdAt: a.datetime().required(),
+      updatedAt: a.datetime().required(),
+    })
+    .authorization((allow) => [
+      allow.ownerDefinedIn("requesterId"),
+      allow.groups(["admin", "teacher"]),
+    ]),
+
   ContentVersion: a
     .model({
       entityType: a.string().required(),

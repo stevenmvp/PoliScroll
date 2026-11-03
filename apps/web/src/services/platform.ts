@@ -101,6 +101,28 @@ export async function listAuditLogs(): Promise<Schema["AuditLog"]["type"][]> {
   return result.data;
 }
 
+export async function listSupportTickets(): Promise<Schema["SupportTicket"]["type"][]> {
+  const result = await client.models.SupportTicket.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar los tickets de atención.");
+  return result.data;
+}
+
+export async function updateSupportTicket(input: {
+  id: string;
+  status: "open" | "in_progress" | "resolved" | "closed";
+  assignedTo?: string;
+  response?: string;
+}): Promise<void> {
+  const result = await client.models.SupportTicket.update({
+    id: input.id,
+    status: input.status,
+    assignedTo: input.assignedTo,
+    response: input.response,
+    updatedAt: new Date().toISOString(),
+  });
+  if (result.errors?.length) throw new Error("No se pudo actualizar el ticket.");
+}
+
 export async function listActivitySessions(): Promise<Schema["ActivitySession"]["type"][]> {
   const result = await client.models.ActivitySession.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar las sesiones.");
