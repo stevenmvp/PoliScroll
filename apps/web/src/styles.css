@@ -170,6 +170,19 @@
 }
 
 .ps-topbar-right { display: flex; align-items: center; gap: 26px; }
+.ps-desktop-menu { position: relative; margin-left: auto; }
+.ps-desktop-menu summary { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; border: 1px solid var(--ps-line); border-radius: 999px; padding: 9px 14px; background: #fff; color: var(--ps-ink); font-size: 11px; font-weight: 850; }
+.ps-desktop-menu summary::-webkit-details-marker { display: none; }
+.ps-desktop-menu summary::after { content: "⌄"; color: var(--ps-cyan); font-size: 14px; }
+.ps-desktop-menu[open] summary { border-color: var(--ps-cyan); box-shadow: 0 0 0 3px #1d9db814; }
+.ps-desktop-menu-panel { position: absolute; z-index: 20; top: calc(100% + 10px); right: 0; display: grid; width: min(390px, calc(100vw - 32px)); grid-template-columns: 1fr 1fr; gap: 5px; padding: 8px; border: 1px solid var(--ps-line); border-radius: 12px; background: rgba(255, 255, 255, .98); box-shadow: 0 18px 45px rgba(28, 68, 80, .16); }
+.ps-desktop-menu-panel button { display: grid; grid-template-columns: 25px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; border: 0; border-radius: 8px; padding: 10px 9px; background: transparent; color: var(--ps-ink); text-align: left; }
+.ps-desktop-menu-panel button:hover { background: #eef8f8; }
+.ps-desktop-menu-panel button > span:first-child { color: var(--ps-cyan); font-size: 17px; text-align: center; }
+.ps-desktop-menu-panel button span:nth-child(2) { display: grid; min-width: 0; gap: 2px; }
+.ps-desktop-menu-panel strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.ps-desktop-menu-panel small { overflow: hidden; color: var(--ps-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.ps-desktop-menu-panel b { color: var(--ps-cyan); font-size: 12px; }
 .ps-campus { display: inline-flex; align-items: center; gap: 8px; color: var(--ps-muted); font-size: 12px; font-weight: 700; }
 .ps-online-dot { width: 7px; height: 7px; border-radius: 50%; background: #75a83b; box-shadow: 0 0 0 4px #75a83b1c; }
 .ps-user-mark { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #bedbdc; border-radius: 50%; background: #e5f3f1; color: #247b76; font-size: 13px; font-weight: 800; }
@@ -408,6 +421,7 @@
 
 @media (max-width: 700px) {
 	.ps-topbar { min-height: 62px; padding: 0 17px; }
+	.ps-desktop-menu { display: none; }
 	.ps-topbar-right { gap: 12px; }
 	.ps-campus { display: none; }
 	.ps-main { padding: 32px 16px 28px; }

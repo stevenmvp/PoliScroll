@@ -370,6 +370,12 @@ let authBusy = false;
 let dashboardSummary: DashboardSummary | null = null;
 let chatConversationId: string | null = null;
 let roleWorkspaceCollapsed = true;
+let routeInitialized = false;
+
+interface AppRoute {
+  screen: "home" | "module";
+  moduleId?: string;
+}
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
@@ -395,6 +401,12 @@ function render(): void {
         <button class="ps-brand" id="go-home" type="button" aria-label="Volver al menu principal">
           <span class="ps-brand-mark" aria-hidden="true">P</span><span>PoliScroll</span>
         </button>
+        <details class="ps-desktop-menu">
+          <summary><span aria-hidden="true">☰</span> Módulos</summary>
+          <div class="ps-desktop-menu-panel" role="menu">
+            ${modules.map((module) => `<button type="button" data-bottom-module="${module.id}" role="menuitem"><span aria-hidden="true">${module.icon}</span><span><strong>${module.title}</strong><small>${module.category}</small></span><b aria-hidden="true">↗</b></button>`).join("")}
+          </div>
+        </details>
         <div class="ps-topbar-right">
           <span class="ps-campus"><span class="ps-online-dot"></span> Campus conectado</span>
           ${screen === "module" ? `<button class="ps-back" id="back-to-menu" type="button"><span aria-hidden="true">←</span> Menú principal</button>` : ""}
@@ -427,6 +439,7 @@ function render(): void {
     await logout();
     authSession = null;
     screen = "home";
+    history.replaceState({ screen: "auth" }, "", "#login");
     render();
   });
   document.querySelectorAll<HTMLButtonElement>("[data-bottom-module]").forEach((button) => {
@@ -662,6 +675,7 @@ async function submitAuth(event: SubmitEvent): Promise<void> {
         throw new Error(`Tu cuenta no tiene acceso de ${roleLabel(selectedLoginRole).toLowerCase()}.`);
       }
       authSession = session;
+      initializeRoute();
       render();
       return;
     }
@@ -1633,12 +1647,37 @@ function openModule(moduleId: string): void {
   searchQuery = "";
   activityFilter = "all";
   screen = "module";
+  history.pushState({ screen, moduleId: selectedModuleId } satisfies AppRoute, "", `#module/${selectedModuleId}`);
   render();
 }
 
 function goHome(): void {
+  if (screen === "home") return;
   screen = "home";
+  history.pushState({ screen } satisfies AppRoute, "", "#home");
   render();
+}
+
+function applyRoute(route: AppRoute): void {
+  if (route.screen === "module" && route.moduleId && modules.some((module) => module.id === route.moduleId)) {
+    selectedModuleId = route.moduleId;
+    screen = "module";
+  } else {
+    screen = "home";
+  }
+  searchQuery = "";
+  activityFilter = "all";
+  render();
+}
+
+function initializeRoute(): void {
+  if (routeInitialized) return;
+  routeInitialized = true;
+  window.addEventListener("popstate", (event) => {
+    if (!authSession) return;
+    applyRoute((event.state as AppRoute | null) ?? { screen: "home" });
+  });
+  history.replaceState({ screen: "home" } satisfies AppRoute, "", "#home");
 }
 
 function showToast(message: string): void {
@@ -1657,6 +1696,7 @@ async function bootstrap(): Promise<void> {
       if (authSession) {
         await ensureUserProfile(authSession);
         dashboardSummary = await getDashboardSummary(authSession);
+        initializeRoute();
       }
     }
   } catch (error) {
