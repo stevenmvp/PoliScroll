@@ -338,6 +338,8 @@
 .ps-activity-intro p { margin: 0; color: var(--ps-muted); font-size: 13px; }
 .ps-activity-intro b { margin-top: 13px; color: var(--tone); font-size: 58px; line-height: 1; }
 .ps-activity-intro small { color: var(--ps-muted); font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.ps-activity-intro label { display: grid; gap: 4px; width: min(280px, 82vw); color: var(--ps-muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
+.ps-activity-intro select { border: 1px solid var(--ps-line); border-radius: 10px; background: #fff; color: var(--ps-ink); padding: 9px 10px; font: inherit; letter-spacing: normal; text-transform: none; }
 @keyframes ps-intro-spin { to { transform: rotate(360deg); } }
 .ps-activity-hud { position: sticky; z-index: 2; top: 0; display: grid; grid-template-columns: repeat(2, 1fr); margin: 0 0 12px; border: 1px solid #dce7e9; border-radius: 6px; background: #fff; box-shadow: 0 6px 18px rgba(21, 60, 75, .05); }
 .ps-activity-hud span { display: grid; gap: 3px; padding: 9px 12px; border-right: 1px solid #dce7e9; }

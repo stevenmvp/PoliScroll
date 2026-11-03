@@ -1166,7 +1166,9 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
 function showGameDialog(group: ActivityGroup): void {
   const engineIds = ["memory", "odd", "timing", "sequence", "maze", "hanoi"];
   const stages = group.stages.map((stage, index) => ({ ...stage, id: engineIds[index] }));
-  root.insertAdjacentHTML("beforeend", `<dialog class="ps-game-dialog ps-activity-dialog" id="game-dialog" aria-labelledby="game-title"><div class="ps-activity-intro" id="activity-intro"><span class="ps-intro-mark">P</span><strong>PoliScroll</strong><p>${escapeHTML(group.title)}</p><b id="intro-countdown">3</b><small>Comencemos</small></div><div class="ps-activity-time-line"><i id="game-perimeter"></i></div><div class="ps-game-shell"><div class="ps-activity-top"><div><small>ACTIVIDAD INTERACTIVA</small><h2 id="game-title">${escapeHTML(group.title)}</h2></div><strong id="activity-score">0</strong></div><p class="ps-game-description">Completa las ${stages.length} etapas. El recorrido avanzará automáticamente al superar cada actividad.</p><div class="ps-activity-hud"><span><small>ACTIVIDAD</small><strong id="activity-count">1 / ${stages.length}</strong></span><span><small>TIEMPO</small><strong id="game-countdown">90s</strong></span></div><div class="ps-activity-scroll" id="game-stage">${stages.map((stage, index) => `<section class="ps-activity-stage${index === 0 ? " is-active" : ""}" data-stage="${index}"><div class="ps-activity-stage-title"><span>${stage.icon}</span><div><small>JUEGO ${index + 1} · ${stage.source}</small><h3>${stage.title}</h3></div></div><div class="ps-mechanic-board" id="board-${stage.id}"></div></section>`).join("")}<section class="ps-activity-stage ps-activity-finish" id="activity-finish"></section></div><audio id="game-music" preload="metadata" loop src="/audio/poliscroll-planning.mp3"></audio></div></dialog>`);
+  const topicOptions = gameTopics.map((topic) => `<option value="${escapeHTML(topic)}"${topic === group.topic ? " selected" : ""}>${escapeHTML(topic)}</option>`).join("");
+  const levelOptions = educationalLevels.map((level) => `<option value="${level}">${level}</option>`).join("");
+  root.insertAdjacentHTML("beforeend", `<dialog class="ps-game-dialog ps-activity-dialog" id="game-dialog" aria-labelledby="game-title"><div class="ps-activity-intro" id="activity-intro"><span class="ps-intro-mark">P</span><strong>PoliScroll</strong><p>${escapeHTML(group.title)}</p><label>Tema educativo<select id="activity-topic">${topicOptions}</select></label><label>Nivel<select id="activity-level">${levelOptions}</select></label><b id="intro-countdown">3</b><small>Comencemos</small></div><div class="ps-activity-time-line"><i id="game-perimeter"></i></div><div class="ps-game-shell"><div class="ps-activity-top"><div><small>ACTIVIDAD INTERACTIVA</small><h2 id="game-title">${escapeHTML(group.title)}</h2></div><strong id="activity-score">0</strong></div><p class="ps-game-description">Completa las ${stages.length} etapas. El recorrido avanzará automáticamente al superar cada actividad.</p><div class="ps-activity-hud"><span><small>ACTIVIDAD</small><strong id="activity-count">1 / ${stages.length}</strong></span><span><small>TIEMPO</small><strong id="game-countdown">90s</strong></span></div><div class="ps-activity-scroll" id="game-stage">${stages.map((stage, index) => `<section class="ps-activity-stage${index === 0 ? " is-active" : ""}" data-stage="${index}"><div class="ps-activity-stage-title"><span>${stage.icon}</span><div><small>JUEGO ${index + 1} · ${stage.source}</small><h3>${stage.title}</h3></div></div><div class="ps-mechanic-board" id="board-${stage.id}"></div></section>`).join("")}<section class="ps-activity-stage ps-activity-finish" id="activity-finish"></section></div><audio id="game-music" preload="metadata" loop src="/audio/poliscroll-planning.mp3"></audio></div></dialog>`);
   const dialog = document.querySelector<HTMLDialogElement>("#game-dialog");
   const scroll = document.querySelector<HTMLDivElement>("#game-stage");
   const scoreElement = document.querySelector<HTMLElement>("#activity-score");
@@ -1174,6 +1176,8 @@ function showGameDialog(group: ActivityGroup): void {
   const countdown = document.querySelector<HTMLElement>("#game-countdown");
   const perimeter = document.querySelector<HTMLElement>("#game-perimeter");
   const music = document.querySelector<HTMLAudioElement>("#game-music");
+  const topicSelect = document.querySelector<HTMLSelectElement>("#activity-topic");
+  const levelSelect = document.querySelector<HTMLSelectElement>("#activity-level");
   if (!dialog || !scroll || !scoreElement || !countElement || !countdown || !perimeter || !music) return;
   const correctSound = new Audio("/audio/poliscroll-beeper.mp3");
   music.volume = .12;
@@ -1308,24 +1312,28 @@ function showGameDialog(group: ActivityGroup): void {
     draw();
   }
   if (group.id === "trivia") {
-    const topicQuestions = questionsByTopic[group.topic ?? "Huesos del cuerpo humano"] ?? questionsByTopic["Huesos del cuerpo humano"];
-    const triviaRounds = stages.map((_, index) => topicQuestions[index % topicQuestions.length]);
-    triviaRounds.forEach((round, index) => {
-      const board = document.querySelector<HTMLElement>(`#board-${engineIds[index]}`);
-      if (!board) return;
-      board.innerHTML = `<p>${round.prompt}</p><div class="ps-game-options">${round.options.map((option, optionIndex) => `<button class="ps-game-option" data-answer="${optionIndex}">${option}</button>`).join("")}</div><small class="ps-question-feedback" aria-live="polite"></small>`;
-      const feedback = board.querySelector<HTMLElement>(".ps-question-feedback");
-      board.querySelectorAll<HTMLButtonElement>("[data-answer]").forEach((button) => button.addEventListener("click", () => {
-        if (Number(button.dataset.answer) === round.answer) {
-          feedback?.replaceChildren(document.createTextNode(round.explanation));
-          complete(index, 100);
-        } else {
-          button.classList.add("is-wrong");
-          if (feedback) feedback.textContent = "Revisa la respuesta e inténtalo nuevamente.";
-          penalty();
-        }
-      }));
-    });
+    const renderTrivia = (): void => {
+      const topicQuestions = questionsByTopic[topicSelect?.value ?? group.topic ?? "Huesos del cuerpo humano"] ?? questionsByTopic["Huesos del cuerpo humano"];
+      const triviaRounds = stages.map((_, index) => topicQuestions[index % topicQuestions.length]);
+      triviaRounds.forEach((round, index) => {
+        const board = document.querySelector<HTMLElement>(`#board-${engineIds[index]}`);
+        if (!board) return;
+        board.innerHTML = `<p>${round.prompt}</p><div class="ps-game-options">${round.options.map((option, optionIndex) => `<button class="ps-game-option" data-answer="${optionIndex}">${option}</button>`).join("")}</div><small class="ps-question-feedback" aria-live="polite"></small>`;
+        const feedback = board.querySelector<HTMLElement>(".ps-question-feedback");
+        board.querySelectorAll<HTMLButtonElement>("[data-answer]").forEach((button) => button.addEventListener("click", () => {
+          if (Number(button.dataset.answer) === round.answer) {
+            feedback?.replaceChildren(document.createTextNode(round.explanation));
+            complete(index, 100);
+          } else {
+            button.classList.add("is-wrong");
+            if (feedback) feedback.textContent = "Revisa la respuesta e inténtalo nuevamente.";
+            penalty();
+          }
+        }));
+      });
+    };
+    renderTrivia();
+    topicSelect?.addEventListener("change", renderTrivia);
   }
   const intro = document.querySelector<HTMLElement>("#activity-intro");
   const introCountdown = document.querySelector<HTMLElement>("#intro-countdown");
@@ -1367,11 +1375,14 @@ function showGameDialog(group: ActivityGroup): void {
   void createActivitySession({
     activityId: group.id,
     activityTitle: group.title,
-    topic: group.title,
+    topic: topicSelect?.value ?? group.topic ?? group.title,
     startedAt: new Date().toISOString(),
   }).then((sessionId) => {
     activitySessionId = sessionId;
-    trace("started");
+    trace("started", undefined, {
+      topic: topicSelect?.value ?? group.topic ?? group.title,
+      level: levelSelect?.value ?? educationalLevels[0],
+    });
   }).catch(() => { traceWarning = true; });
   music.play().catch(() => showToast("El juego continúa sin música de fondo."));
   updateHud();
