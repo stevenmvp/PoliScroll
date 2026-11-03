@@ -760,7 +760,7 @@ function renderModule(module: ModuleData): string {
   }
 
   function renderCoursesModule(module: ModuleData): string {
-    const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="course-publisher"><strong>Publicar curso</strong><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option selected>Universitaria</option></select></label><label>Modalidad<select name="modality"><option>Presencial</option><option>Virtual</option><option>Híbrido</option></select></label><label>Duración (semanas)<input name="durationWeeks" type="number" min="1" max="52" value="4" required /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar curso <span>↗</span></button></form>` : "";
+    const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="course-publisher"><strong>Publicar curso</strong><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option selected>Universitaria</option></select></label><label>Modalidad<select name="modality"><option value="Presencial">Presencial</option><option value="Virtual">Virtual</option><option value="Hibrido">Híbrido</option></select></label><label>Duración (semanas)<input name="durationWeeks" type="number" min="1" max="52" value="4" required /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar curso <span>↗</span></button></form>` : "";
     return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Aprendizaje / Cursos</p><h1 id="module-title">Rutas de aprendizaje.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Cursos publicados</span><strong id="course-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="courses-list"><p class="ps-empty-state">Cargando cursos publicados…</p></div><p class="ps-management-feedback" id="courses-feedback" role="status"></p></section>`;
   }
 
@@ -769,7 +769,7 @@ function renderModule(module: ModuleData): string {
   }
 
   function renderTutoringModule(module: ModuleData): string {
-    const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="tutoring-publisher"><strong>Publicar disponibilidad</strong><div class="ps-management-grid"><label>Área o materia<input name="subject" required maxlength="100" /></label><label>Modalidad<select name="modality"><option>Presencial</option><option>Virtual</option><option>Híbrido</option></select></label><label>Disponibilidad<input name="availability" required maxlength="120" placeholder="Mar y jue 14:00–16:00" /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar tutoría <span>↗</span></button></form>` : "";
+    const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="tutoring-publisher"><strong>Publicar disponibilidad</strong><div class="ps-management-grid"><label>Área o materia<input name="subject" required maxlength="100" /></label><label>Modalidad<select name="modality"><option value="Presencial">Presencial</option><option value="Virtual">Virtual</option><option value="Hibrido">Híbrido</option></select></label><label>Disponibilidad<input name="availability" required maxlength="120" placeholder="Mar y jue 14:00–16:00" /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar tutoría <span>↗</span></button></form>` : "";
     return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Acompañamiento / Tutorías</p><h1 id="module-title">Agenda una tutoría.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Áreas activas</span><strong id="tutoring-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="tutoring-list"><p class="ps-empty-state">Cargando tutores disponibles…</p></div><p class="ps-management-feedback" id="tutoring-feedback" role="status"></p></section>`;
   }
   if (module.id === "comunidades" && authSession && authSession.user.role !== "student") {
@@ -981,7 +981,7 @@ function wireCoursesModule(module: ModuleData): void {
       description: String(values.get("description") ?? "").trim(),
       instructorId: authSession!.user.id,
       educationalLevel: String(values.get("educationalLevel")) as "Primaria" | "Secundaria" | "Universitaria",
-      modality: String(values.get("modality")) as "Presencial" | "Virtual" | "Híbrido",
+      modality: String(values.get("modality")) as "Presencial" | "Virtual" | "Hibrido",
       durationWeeks: Number(values.get("durationWeeks")),
     }).then(() => { feedback.textContent = "Curso publicado correctamente."; render(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar el curso."; });
   });
@@ -1036,7 +1036,7 @@ function wireTutoringModule(): void {
       description: String(values.get("description") ?? "").trim(),
       tutorId: authSession!.user.id,
       availability: String(values.get("availability") ?? "").trim(),
-      modality: String(values.get("modality")) as "Presencial" | "Virtual" | "Híbrido",
+      modality: String(values.get("modality")) as "Presencial" | "Virtual" | "Hibrido",
     }).then(() => { feedback.textContent = "Oferta de tutoría publicada."; render(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar la tutoría."; });
   });
   void listTutoringOffers().then((offers) => {

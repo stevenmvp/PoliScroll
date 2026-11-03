@@ -212,7 +212,7 @@ export async function createCourse(input: {
   description: string;
   instructorId: string;
   educationalLevel: "Primaria" | "Secundaria" | "Universitaria";
-  modality: "Presencial" | "Virtual" | "Híbrido";
+  modality: "Presencial" | "Virtual" | "Hibrido";
   durationWeeks?: number;
   capacity?: number;
   startsAt?: string;
@@ -242,7 +242,7 @@ export async function createTutoringOffer(input: {
   description: string;
   tutorId: string;
   availability: string;
-  modality: "Presencial" | "Virtual" | "Híbrido";
+  modality: "Presencial" | "Virtual" | "Hibrido";
 }): Promise<void> {
   const result = await client.models.TutoringOffer.create({ ...input, status: "active" });
   if (result.errors?.length) throw new Error("No se pudo publicar la oferta de tutoría.");

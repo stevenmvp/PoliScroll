@@ -100,7 +100,7 @@ const schema = a.schema({
       description: a.string().required(),
       instructorId: a.string().required(),
       educationalLevel: a.enum(["Primaria", "Secundaria", "Universitaria"]),
-      modality: a.enum(["Presencial", "Virtual", "Híbrido"]),
+      modality: a.enum(["Presencial", "Virtual", "Hibrido"]),
       durationWeeks: a.integer(),
       capacity: a.integer(),
       status: a.enum(["draft", "published", "closed"]),
@@ -123,7 +123,7 @@ const schema = a.schema({
       description: a.string().required(),
       tutorId: a.string().required(),
       availability: a.string().required(),
-      modality: a.enum(["Presencial", "Virtual", "Híbrido"]),
+      modality: a.enum(["Presencial", "Virtual", "Hibrido"]),
       status: a.enum(["active", "paused", "closed"]),
     })
     .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
