@@ -1,4 +1,4 @@
-import { type GameDefinition, type GameCategory } from '../types/game';
+import { type GameDefinition, type GameCategory, type GameResourcesDeclaration } from '../types/game';
 
 type GameModule = Record<string, unknown>;
 
@@ -11,9 +11,20 @@ function isGameDefinition(value: unknown): value is GameDefinition {
 }
 
 const gameModules = import.meta.glob<GameModule>('./*/index.{ts,tsx}', { eager: true });
+const resourceModules = import.meta.glob<GameModule>('./*/resources.ts', { eager: true });
+
+const resourcesByGameId = new Map<string, GameResourcesDeclaration>();
+Object.entries(resourceModules).forEach(([path, module]) => {
+  const gameId = path.match(/^\.\/([^/]+)\/resources\.ts$/)?.[1];
+  const resources = module.resources;
+  if (gameId && resources && typeof resources === 'object') {
+    resourcesByGameId.set(gameId, resources as GameResourcesDeclaration);
+  }
+});
 
 export const ALL_GAMES: GameDefinition[] = Object.values(gameModules)
   .flatMap((module) => Object.values(module).filter(isGameDefinition))
+  .map((game) => ({ ...game, resources: game.resources ?? resourcesByGameId.get(game.id) }))
   .sort((left, right) => left.title.localeCompare(right.title));
 
 export function getAllGames(): GameDefinition[] {
