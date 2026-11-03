@@ -11,6 +11,7 @@ import { SuperGameEditorModal } from './components/SuperGameEditorModal';
 import { WorkoutRunner } from './components/WorkoutRunner';
 import { type GameDefinition } from './types/game';
 import type { GameResult } from './types/game';
+import { themeStore } from './services/themeStore';
 
 interface ArcadeModuleProps {
   onGameResult?: (game: GameDefinition, result: GameResult) => void;
@@ -26,15 +27,20 @@ export default function App({ onGameResult }: ArcadeModuleProps) {
 
   const handlePlayGame = (game: GameDefinition) => {
     setActiveWorkoutCount(null);
+    void themeStore.toggleFullscreen();
     setActivePlayingGame(game);
   };
 
   const handleStartWorkout = (count: number) => {
     setActivePlayingGame(null);
+    void themeStore.toggleFullscreen();
     setActiveWorkoutCount(count);
   };
 
   const handleBackToCatalog = () => {
+    if (document.fullscreenElement) {
+      void themeStore.toggleFullscreen();
+    }
     setActivePlayingGame(null);
     setActiveWorkoutCount(null);
   };

@@ -342,8 +342,8 @@ export const FrenzyMode: React.FC<FrenzyModeProps> = ({ onExit, onOpenLeaderboar
           )}
 
           {/* Active Game Viewport - Responsive Full View */}
-          <main className="flex-1 w-full max-w-6xl mx-auto p-2 sm:p-4 flex items-center justify-center overflow-hidden">
-            <div className="w-full h-full max-h-[85vh] rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white flex flex-col items-center justify-center relative">
+          <main className="flex-1 w-full max-w-none p-0 flex items-center justify-center overflow-hidden">
+            <div className="w-full h-full overflow-hidden border-y border-slate-200 shadow-lg bg-white flex flex-col items-center justify-center relative">
               <CurrentComponent
                 key={currentGame.id}
                 onGameOver={handleSubGameEnd}

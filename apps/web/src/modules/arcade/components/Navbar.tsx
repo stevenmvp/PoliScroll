@@ -148,7 +148,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <>
                 <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
                 <span className="hidden md:inline font-normal text-emerald-700">Modo:</span>
-                <span className="font-extrabold text-emerald-800">Academia</span>
+                <span className="font-extrabold text-emerald-800">Modo Aprendizaje</span>
               </>
             ) : (
               <>

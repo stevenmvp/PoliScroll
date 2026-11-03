@@ -30,6 +30,7 @@ import {
   Layers,
   X,
 } from 'lucide-react';
+import { askTutor } from '../../../services/platform';
 
 interface AcademicFeedbackDrawerProps {
   isOpen: boolean;
@@ -89,15 +90,23 @@ export const AcademicFeedbackDrawer: React.FC<AcademicFeedbackDrawerProps> = ({
     soundManager.playClick('D4');
 
     try {
-      const res = await fetch('/api/academic/generate-topic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: customPrompt.trim() }),
+      const topicTitle = customPrompt.trim();
+      const generatedDescription = await askTutor(
+        `Prepara una introducción educativa breve sobre "${topicTitle}" para estudiantes. Incluye la idea central, dos conceptos clave y una confusión frecuente.`,
+        'Devuelve texto claro y breve, sin formato JSON.',
+      );
+      academicStore.addCustomTopic({
+        id: `custom-${Date.now()}`,
+        title: topicTitle,
+        domain: 'custom',
+        icon: 'BookOpen',
+        promptQuestion: `¿Qué conceptos corresponden verdaderamente a "${topicTitle}"?`,
+        shortCriteria: topicTitle,
+        description: generatedDescription,
+        correctItems: [{ term: `Conceptos clave de ${topicTitle}`, explanation: generatedDescription }],
+        distractorItems: [{ term: 'Confusión frecuente', explanation: 'Revisa la explicación del tutor para diferenciarla.', mistakenOrigin: 'Confusión común del tema' }],
+        isCustom: true,
       });
-
-      if (!res.ok) throw new Error('Error al conectar con la IA');
-      const topicData = await res.json();
-      academicStore.addCustomTopic(topicData);
       setCustomPrompt('');
       setIsCreatingTopic(false);
       soundManager.playMarbleCollect(2);
@@ -140,22 +149,11 @@ export const AcademicFeedbackDrawer: React.FC<AcademicFeedbackDrawerProps> = ({
     soundManager.playClick('F4');
 
     try {
-      const res = await fetch('/api/academic/expand-explanation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          concept: log.concept,
-          isCorrect: log.isCorrect,
-          topicTitle: log.topicTitle,
-          mistakenOrigin: log.mistakenOrigin,
-          questionPrompt: activeTopic.promptQuestion,
-          domainCategory: activeTopic.domainCategory,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Error al expandir explicación');
-      const data = await res.json();
-      academicStore.updateDetailedExplanation(log.id, data.explanation);
+      const explanation = await askTutor(
+        `Explica con detalle y lenguaje educativo el concepto "${log.concept}". ${log.isCorrect ? 'La respuesta fue correcta.' : 'La respuesta fue incorrecta.'} Incluye una definición, una relación con el tema "${log.topicTitle}" y una forma breve de recordarlo.`,
+        `Tema: ${activeTopic.title}. Pregunta: ${activeTopic.promptQuestion}. Distractor relacionado: ${log.mistakenOrigin ?? 'ninguno'}.`,
+      );
+      academicStore.updateDetailedExplanation(log.id, explanation);
       setExpandedExplanationLogs((prev) => ({ ...prev, [log.id]: true }));
       soundManager.playClick('A4');
     } catch (err) {
@@ -211,23 +209,11 @@ export const AcademicFeedbackDrawer: React.FC<AcademicFeedbackDrawerProps> = ({
     setIsChatSending(true);
 
     try {
-      const res = await fetch('/api/academic/tutor-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMsg,
-          history: updatedLog?.chatHistory || [],
-          concept: activeChatLog.concept,
-          topicTitle: activeChatLog.topicTitle,
-          isCorrect: activeChatLog.isCorrect,
-          mistakenOrigin: activeChatLog.mistakenOrigin,
-          domainCategory: activeTopic.domainCategory,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Error en el chat');
-      const data = await res.json();
-      academicStore.appendChatMessage(activeChatLog.id, { role: 'model', text: data.reply });
+      const reply = await askTutor(
+        userMsg,
+        `Actúa como tutor socrático. Tema: ${activeTopic.title}. Concepto: ${activeChatLog.concept}. Resultado: ${activeChatLog.isCorrect ? 'correcto' : 'incorrecto'}. Historial: ${JSON.stringify(updatedLog?.chatHistory ?? [])}`,
+      );
+      academicStore.appendChatMessage(activeChatLog.id, { role: 'model', text: reply });
 
       const finalLog = academicStore.getLogs().find((l) => l.id === activeChatLog.id);
       if (finalLog) setActiveChatLog(finalLog);

@@ -255,7 +255,7 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
       )}
 
       {/* Main Unified Arcade Stage Container (Consistent 16:10 Geometry across PC, Tablet and Mobile) */}
-      <main className="flex-1 w-full max-w-6xl mx-auto p-1.5 sm:p-3 flex items-center justify-center overflow-hidden">
+      <main className="flex-1 w-full max-w-none p-0 flex items-center justify-center overflow-hidden">
         <div
           className={`w-full max-w-5xl aspect-[16/10] max-h-[82vh] rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200/90 shadow-2xl bg-white flex flex-col items-center justify-center relative transition-all ${
             isFullscreen ? 'max-w-none max-h-none h-full aspect-auto rounded-none border-none' : ''

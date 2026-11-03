@@ -27,6 +27,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
   const [inspectedGame, setInspectedGame] = useState<GameDefinition | null>(null);
   const [progression, setProgression] = useState(progressionStore.getData());
   const [arcadeConfig, setArcadeConfig] = useState(() => arcadeConfigStore.getConfig());
+  const [catalogMode, setCatalogMode] = useState<'grid' | 'reels'>('reels');
 
   React.useEffect(() => {
     const unsub1 = progressionStore.subscribe(() => {
@@ -211,10 +212,19 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             {tab.label}
           </button>
         ))}
+        <button
+          onClick={() => setCatalogMode((mode) => mode === 'grid' ? 'reels' : 'grid')}
+          className="ml-auto px-4 py-2 text-xs md:text-sm font-bold rounded-xl whitespace-nowrap text-violet-700 bg-white border border-violet-200 shadow-xs"
+          aria-pressed={catalogMode === 'reels'}
+        >
+          {catalogMode === 'reels' ? 'Vista cuadrícula' : 'Vista reels'}
+        </button>
       </div>
 
-      {/* Games Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Catalog grid or vertical reel feed */}
+      <div className={catalogMode === 'reels'
+        ? 'arcade-reels flex flex-col gap-5 overflow-y-auto snap-y snap-mandatory pr-1'
+        : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'}>
         {filteredGames.map((game) => {
           const isUnlocked = progression.unlockedGames.includes(game.id);
           const highScore = progression.gameHighScores[game.id] || 0;
@@ -222,7 +232,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           return (
             <div
               key={game.id}
-              className="group relative bg-white border border-slate-200 hover:border-slate-300 rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 shadow-xs hover:shadow-md"
+              className={`group relative bg-white border border-slate-200 hover:border-slate-300 rounded-3xl p-6 flex flex-col justify-between transition-all duration-200 hover:-translate-y-1 shadow-xs hover:shadow-md ${catalogMode === 'reels' ? 'min-h-[min(68vh,620px)] snap-start md:p-10' : ''}`}
             >
               <div>
                 {/* Quiet Unboxed Metadata (Zero-Pill rule) */}

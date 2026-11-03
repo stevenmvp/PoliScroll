@@ -32,3 +32,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+.arcade-reels {
+  max-height: min(76vh, 760px);
+  scrollbar-width: thin;
+}
+
+.arcade-reels > * {
+  min-height: min(68vh, 620px);
+}
