@@ -1,4 +1,5 @@
 import { a, defineData, type ClientSchema } from "@aws-amplify/backend";
+import { tutor } from "../functions/tutor/resource.js";
 
 const schema = a.schema({
   UserProfile: a
@@ -231,6 +232,18 @@ const schema = a.schema({
       actionUrl: a.string(),
     })
     .authorization((allow) => [allow.ownerDefinedIn("userId"), allow.groups(["admin", "teacher"]).to(["create"])]),
+
+  tutorFeedback: a
+    .query()
+    .arguments({
+      prompt: a.string().required(),
+      context: a.string(),
+    })
+    .returns(a.customType({
+      answer: a.string().required(),
+    }))
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(tutor)),
 });
 
 export type Schema = ClientSchema<typeof schema>;

@@ -27,6 +27,7 @@ import {
   createStudyGroup,
   dashboardRoleTitle,
   getDashboardSummary,
+  askTutor,
   findStudyGroupByCode,
   joinStudyGroup,
   listCampusEvents,
@@ -466,6 +467,8 @@ function render(): void {
           body: text,
         });
         appendChatMessage(messages, "Mensaje guardado en tu conversación del campus.", "is-bot");
+        const answer = await askTutor(text, "El estudiante está usando PoliChat dentro de una plataforma educativa universitaria.");
+        appendChatMessage(messages, answer, "is-bot");
         messages.scrollTop = messages.scrollHeight;
       } catch (error) {
         appendChatMessage(messages, error instanceof Error ? error.message : "No se pudo guardar el mensaje.", "is-bot");

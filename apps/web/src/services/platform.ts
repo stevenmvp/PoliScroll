@@ -132,6 +132,12 @@ export async function listNotifications(): Promise<Schema["Notification"]["type"
   return result.data;
 }
 
+export async function askTutor(prompt: string, context?: string): Promise<string> {
+  const result = await client.queries.tutorFeedback({ prompt, context });
+  if (result.errors?.length || !result.data?.answer) throw new Error("El tutor IA no está disponible en este momento.");
+  return result.data.answer;
+}
+
 export async function listStudyGroups(): Promise<Schema["StudyGroup"]["type"][]> {
   const result = await client.models.StudyGroup.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar los grupos.");
