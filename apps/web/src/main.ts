@@ -1,6 +1,7 @@
 import "./styles.css";
 import "./modules/arcade/arcade.css";
 import { mountArcade, unmountArcade } from "./modules/arcade/mount";
+import { getAllGames } from "./modules/arcade/games/registry";
 import type { EducationalLevel } from "./domain/identity";
 import type { AuthSession, UserRole } from "./domain/identity";
 import {
@@ -50,6 +51,8 @@ import {
   updateUserProfileStatus,
   deleteUserProfile,
   archiveNewsArticle,
+  listArcadeGameConfigs,
+  upsertArcadeGameConfig,
   markChatRead,
   sendChatMessage,
   type DashboardSummary,
@@ -1131,7 +1134,7 @@ function wireTutoringModule(): void {
 }
 
 function renderAdminModule(): string {
-  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Control y auditoría</p><h1 id="module-title">Centro de control.</h1><p class="ps-module-description">Administra usuarios, publicaciones y operaciones del campus desde un solo lugar.</p></div></div><form class="ps-management-form" id="admin-news-form"><div class="ps-management-form-heading"><strong>Publicar noticia</strong><span>Visible para la comunidad</span></div><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Resumen<input name="summary" maxlength="180" /></label></div><label>Contenido<textarea name="body" required maxlength="2000"></textarea></label><button class="ps-create-button" type="submit">Publicar noticia <span>↗</span></button><p class="ps-management-feedback" id="admin-feedback" role="status"></p></form><div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong><span>Estado y acciones</span></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Noticias publicadas</strong><span>Publicar o retirar</span></div><div class="ps-management-list" id="admin-news-list"><p class="ps-empty-state">Cargando noticias…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong><span>Últimos cambios</span></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section></div></section>`;
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Control y auditoría</p><h1 id="module-title">Centro de control.</h1><p class="ps-module-description">Administra usuarios, publicaciones, juegos y operaciones del campus desde un solo lugar.</p></div></div><form class="ps-management-form" id="admin-news-form"><div class="ps-management-form-heading"><strong>Publicar noticia</strong><span>Visible para la comunidad</span></div><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Resumen<input name="summary" maxlength="180" /></label></div><label>Contenido<textarea name="body" required maxlength="2000"></textarea></label><button class="ps-create-button" type="submit">Publicar noticia <span>↗</span></button><p class="ps-management-feedback" id="admin-feedback" role="status"></p></form><div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong><span>Estado y acciones</span></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Configuración del arcade</strong><span>Disponibilidad, niveles y Frenesí</span></div><div class="ps-management-list" id="admin-games-list"><p class="ps-empty-state">Cargando juegos…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Noticias publicadas</strong><span>Publicar o retirar</span></div><div class="ps-management-list" id="admin-news-list"><p class="ps-empty-state">Cargando noticias…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong><span>Últimos cambios</span></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section></div></section>`;
 }
 
 function renderStudentProgressModule(): string {
@@ -1145,6 +1148,7 @@ function renderTeacherReviewModule(): string {
 function wireAdminModule(): void {
   const users = document.querySelector<HTMLDivElement>("#admin-users-list");
   const news = document.querySelector<HTMLDivElement>("#admin-news-list");
+  const games = document.querySelector<HTMLDivElement>("#admin-games-list");
   const audit = document.querySelector<HTMLDivElement>("#admin-audit-list");
   const feedback = document.querySelector<HTMLParagraphElement>("#admin-feedback");
   if (!users || !audit || !authSession) return;
@@ -1159,7 +1163,7 @@ function wireAdminModule(): void {
       authorId: authSession!.user.id,
     }).then(() => { if (feedback) feedback.textContent = "Noticia publicada."; render(); }).catch((error: unknown) => { if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar la noticia."; });
   });
-  void Promise.all([listUserProfiles(), listAuditLogs(), listNewsArticles()]).then(([profiles, logs, articles]) => {
+  void Promise.all([listUserProfiles(), listAuditLogs(), listNewsArticles(), listArcadeGameConfigs()]).then(([profiles, logs, articles, gameConfigs]) => {
     const uniqueProfiles = [...new Map(profiles.map((profile) => [profile.email.toLowerCase(), profile])).values()];
     users.innerHTML = uniqueProfiles.map((profile) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${profile.role ?? "student"} · ${profile.status ?? "active"}</span><h2>${escapeHTML(profile.displayName)}</h2><p>${escapeHTML(profile.email)}</p></div><div class="ps-inline-actions"><button class="ps-secondary-button" type="button" data-user-status="${profile.status === "suspended" ? "active" : "suspended"}" data-user-id="${profile.id}">${profile.status === "suspended" ? "Habilitar" : "Suspender"}</button>${profile.id !== authSession!.user.id ? `<button class="ps-secondary-button" type="button" data-delete-user="${profile.id}">Eliminar registro</button>` : ""}</div></article>`).join("") || `<p class="ps-empty-state">No hay perfiles.</p>`;
     users.querySelectorAll<HTMLButtonElement>("[data-user-status]").forEach((button) => button.addEventListener("click", () => {
@@ -1169,6 +1173,37 @@ function wireAdminModule(): void {
       button.disabled = true;
       void updateUserProfileStatus(id, status).then(() => render()).catch((error: unknown) => { button.disabled = false; if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo actualizar el usuario."; });
     }));
+    if (games) {
+      const configsByGame = new Map(gameConfigs.map((config) => [config.gameId, config]));
+      games.innerHTML = getAllGames().map((game) => {
+        const config = configsByGame.get(game.id);
+        const enabled = config?.enabled ?? true;
+        const frenzyEnabled = config?.frenzyEnabled ?? game.dimension === "2d";
+        const levels = config?.educationalLevels ?? ["Primaria", "Secundaria", "Universitaria"];
+        return `<article class="ps-management-card"><div><span class="ps-feed-tag">${game.dimension.toUpperCase()} · ${enabled ? "habilitado" : "inhibido"}</span><h2>${escapeHTML(game.title)}</h2><p>${escapeHTML(game.tagline)}</p></div><form class="ps-inline-actions" data-game-config-form="${game.id}"><label class="ps-inline-checkbox"><input type="checkbox" name="enabled" ${enabled ? "checked" : ""} /> Catálogo</label><label class="ps-inline-checkbox"><input type="checkbox" name="frenzyEnabled" ${frenzyEnabled ? "checked" : ""} /> Frenesí</label><select name="difficulty" aria-label="Dificultad"><option value="facil" ${(config?.difficulty ?? game.difficulty) === "facil" ? "selected" : ""}>Fácil</option><option value="medio" ${(config?.difficulty ?? game.difficulty) === "medio" ? "selected" : ""}>Medio</option><option value="experto" ${(config?.difficulty ?? game.difficulty) === "experto" ? "selected" : ""}>Experto</option></select><button class="ps-secondary-button" type="submit">Guardar</button><input type="hidden" name="levels" value="${escapeHTML(levels.join(","))}" /></form></article>`;
+      }).join("");
+      games.querySelectorAll<HTMLFormElement>("[data-game-config-form]").forEach((form) => form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const values = new FormData(form);
+        const game = getAllGames().find((candidate) => candidate.id === form.dataset.gameConfigForm);
+        if (!game || !authSession) return;
+        const button = form.querySelector<HTMLButtonElement>("button[type=submit]");
+        if (button) button.disabled = true;
+        void upsertArcadeGameConfig({
+          id: configsByGame.get(game.id)?.id,
+          gameId: game.id,
+          enabled: values.get("enabled") === "on",
+          frenzyEnabled: values.get("frenzyEnabled") === "on",
+          difficulty: String(values.get("difficulty") ?? game.difficulty) as "facil" | "medio" | "experto",
+          speedMultiplier: 1,
+          educationalLevels: String(values.get("levels") ?? "").split(",").filter(Boolean),
+          updatedBy: authSession.user.id,
+        }).then(() => render()).catch((error: unknown) => {
+          if (button) button.disabled = false;
+          if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo guardar la configuración.";
+        });
+      }));
+    }
     users.querySelectorAll<HTMLButtonElement>("[data-delete-user]").forEach((button) => button.addEventListener("click", () => {
       const id = button.dataset.deleteUser;
       if (!id || !window.confirm("¿Eliminar este registro de perfil? La cuenta Cognito no se elimina.")) return;

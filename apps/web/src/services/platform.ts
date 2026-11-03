@@ -107,6 +107,42 @@ export async function listActivitySessions(): Promise<Schema["ActivitySession"][
   return result.data;
 }
 
+export async function listArcadeGameConfigs(): Promise<Schema["ArcadeGameConfig"]["type"][]> {
+  const result = await client.models.ArcadeGameConfig.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudo cargar la configuración del arcade.");
+  return result.data;
+}
+
+export async function upsertArcadeGameConfig(input: {
+  id?: string;
+  gameId: string;
+  enabled: boolean;
+  difficulty: "facil" | "medio" | "experto";
+  speedMultiplier: number;
+  customTitle?: string;
+  customInstruction?: string;
+  educationalLevels: string[];
+  frenzyEnabled: boolean;
+  updatedBy: string;
+}): Promise<void> {
+  const payload = {
+    gameId: input.gameId,
+    enabled: input.enabled,
+    difficulty: input.difficulty,
+    speedMultiplier: input.speedMultiplier,
+    customTitle: input.customTitle || undefined,
+    customInstruction: input.customInstruction || undefined,
+    educationalLevels: input.educationalLevels,
+    frenzyEnabled: input.frenzyEnabled,
+    updatedBy: input.updatedBy,
+    updatedAt: new Date().toISOString(),
+  };
+  const result = input.id
+    ? await client.models.ArcadeGameConfig.update({ id: input.id, ...payload })
+    : await client.models.ArcadeGameConfig.create(payload);
+  if (result.errors?.length) throw new Error("No se pudo guardar la configuración del juego.");
+}
+
 export async function listGradeRecords(): Promise<Schema["GradeRecord"]["type"][]> {
   const result = await client.models.GradeRecord.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar las calificaciones.");

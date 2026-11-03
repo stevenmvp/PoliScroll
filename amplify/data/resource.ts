@@ -46,6 +46,24 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
 
+  ArcadeGameConfig: a
+    .model({
+      gameId: a.string().required(),
+      enabled: a.boolean().required(),
+      difficulty: a.enum(["facil", "medio", "experto"]),
+      speedMultiplier: a.float(),
+      customTitle: a.string(),
+      customInstruction: a.string(),
+      educationalLevels: a.string().array(),
+      frenzyEnabled: a.boolean().required(),
+      updatedBy: a.string().required(),
+      updatedAt: a.datetime().required(),
+    })
+    .authorization((allow) => [
+      allow.authenticated().to(["read"]),
+      allow.groups(["admin"]),
+    ]),
+
   StudyGroup: a
     .model({
       name: a.string().required(),
