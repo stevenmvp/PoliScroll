@@ -87,6 +87,7 @@ interface ActivityGroup {
   description: string;
   icon: string;
   mode: string;
+  topic?: string;
   stages: { title: string; source: string; icon: string }[];
 }
 
@@ -180,7 +181,7 @@ const educationalGames: EducationalGame[] = sourceGames.map((game) => ({
 }));
 
 const activityGroups: ActivityGroup[] = [
-  { id: "trivia", title: "Reto relámpago", description: "Seis desafíos de decisión rápida con preguntas breves.", icon: "?", mode: "Trivia", stages: [{ title: "Arranque rápido", source: "Quiz Game", icon: "?" }, { title: "Duelo matemático", source: "Math Duel", icon: "⚡" }, { title: "Código veloz", source: "Code Breaker", icon: "#" }, { title: "Cronología", source: "History Timeline", icon: "◷" }, { title: "Banderas", source: "Flag Guess", icon: "⚑" }, { title: "Jefe de trivia", source: "Quiz Game", icon: "★" }] },
+  { id: "trivia", title: "Reto relámpago", description: "Seis desafíos de decisión rápida con preguntas breves.", icon: "?", mode: "Trivia", topic: "Huesos del cuerpo humano", stages: [{ title: "Arranque rápido", source: "Quiz Game", icon: "?" }, { title: "Duelo matemático", source: "Math Duel", icon: "⚡" }, { title: "Código veloz", source: "Code Breaker", icon: "#" }, { title: "Cronología", source: "History Timeline", icon: "◷" }, { title: "Banderas", source: "Flag Guess", icon: "⚑" }, { title: "Jefe de trivia", source: "Quiz Game", icon: "★" }] },
   { id: "memoria", title: "Archivo de memoria", description: "Seis retos de parejas, secuencias y concentración.", icon: "▦", mode: "Memoria", stages: [{ title: "Parejas", source: "Memory Game", icon: "▦" }, { title: "Matriz", source: "Memory Matrix", icon: "▦" }, { title: "Simón", source: "Simon Says", icon: "♫" }, { title: "Secuencia", source: "Pattern Pulse", icon: "⌁" }, { title: "Color", source: "Color Sequence Memory", icon: "◈" }, { title: "Concentración", source: "Concentration", icon: "◇" }] },
   { id: "organizar", title: "Orden y velocidad", description: "Organiza, conecta y completa antes de que se agote el tiempo.", icon: "⌘", mode: "Organización", stages: [{ title: "Cadena", source: "Logic-Chain", icon: "⌘" }, { title: "Tuberías", source: "Pipe Mania", icon: "⌘" }, { title: "Circuito", source: "Circuit Connect", icon: "⌁" }, { title: "Puente", source: "Bridge Puzzle", icon: "⌒" }, { title: "Flujo", source: "Energy Flow", icon: "↝" }, { title: "Equilibrio", source: "Balance Scale", icon: "⚖" }] },
   { id: "reaccion", title: "Reacción total", description: "Velocidad, ritmo, precisión y reflejos.", icon: "⚡", mode: "Reacción", stages: [{ title: "Timing", source: "Timing-Bar", icon: "━" }, { title: "Caza el punto", source: "Catch The Dot", icon: "●" }, { title: "Número pop", source: "Number-Pop", icon: "＋" }, { title: "Eco rítmico", source: "EchoBeats", icon: "♫" }, { title: "Esquiva", source: "Dodge the Blocks", icon: "↗" }, { title: "Sprint", source: "Math Sprint", icon: "⚡" }] },
@@ -1307,21 +1308,22 @@ function showGameDialog(group: ActivityGroup): void {
     draw();
   }
   if (group.id === "trivia") {
-    const triviaRounds = [
-      { prompt: "¿Qué hueso protege el cerebro?", options: ["Cráneo", "Fémur", "Radio"], answer: 0 },
-      { prompt: "¿Qué hueso está en el muslo?", options: ["Fémur", "Clavícula", "Cúbito"], answer: 0 },
-      { prompt: "¿Qué estructura protege corazón y pulmones?", options: ["Costillas", "Falanges", "Tibia"], answer: 0 },
-      { prompt: "¿Cuál es una articulación?", options: ["Cadera", "Cráneo", "Esternón"], answer: 0 },
-      { prompt: "¿Qué producen muchos huesos en su interior?", options: ["Células sanguíneas", "Aire", "Lágrimas"], answer: 0 },
-      { prompt: "¿Qué hueso forma parte del antebrazo?", options: ["Radio", "Fémur", "Rótula"], answer: 0 },
-    ];
+    const topicQuestions = questionsByTopic[group.topic ?? "Huesos del cuerpo humano"] ?? questionsByTopic["Huesos del cuerpo humano"];
+    const triviaRounds = stages.map((_, index) => topicQuestions[index % topicQuestions.length]);
     triviaRounds.forEach((round, index) => {
       const board = document.querySelector<HTMLElement>(`#board-${engineIds[index]}`);
       if (!board) return;
-      board.innerHTML = `<p>${round.prompt}</p><div class="ps-game-options">${round.options.map((option, optionIndex) => `<button class="ps-game-option" data-answer="${optionIndex}">${option}</button>`).join("")}</div>`;
+      board.innerHTML = `<p>${round.prompt}</p><div class="ps-game-options">${round.options.map((option, optionIndex) => `<button class="ps-game-option" data-answer="${optionIndex}">${option}</button>`).join("")}</div><small class="ps-question-feedback" aria-live="polite"></small>`;
+      const feedback = board.querySelector<HTMLElement>(".ps-question-feedback");
       board.querySelectorAll<HTMLButtonElement>("[data-answer]").forEach((button) => button.addEventListener("click", () => {
-        if (Number(button.dataset.answer) === round.answer) complete(index, 100);
-        else { button.classList.add("is-wrong"); penalty(); }
+        if (Number(button.dataset.answer) === round.answer) {
+          feedback?.replaceChildren(document.createTextNode(round.explanation));
+          complete(index, 100);
+        } else {
+          button.classList.add("is-wrong");
+          if (feedback) feedback.textContent = "Revisa la respuesta e inténtalo nuevamente.";
+          penalty();
+        }
       }));
     });
   }
