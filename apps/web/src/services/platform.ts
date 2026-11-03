@@ -79,6 +79,18 @@ export function dashboardRoleTitle(role: UserRole): string {
   return "Tu progreso";
 }
 
+export async function listUserProfiles(): Promise<Schema["UserProfile"]["type"][]> {
+  const result = await client.models.UserProfile.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar los usuarios.");
+  return result.data;
+}
+
+export async function listAuditLogs(): Promise<Schema["AuditLog"]["type"][]> {
+  const result = await client.models.AuditLog.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudo cargar la auditoría.");
+  return result.data;
+}
+
 export async function listStudyGroups(): Promise<Schema["StudyGroup"]["type"][]> {
   const result = await client.models.StudyGroup.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar los grupos.");

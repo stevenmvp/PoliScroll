@@ -29,8 +29,10 @@ import {
   findStudyGroupByCode,
   joinStudyGroup,
   listCampusEvents,
+  listAuditLogs,
   listNewsArticles,
   listStudyGroups,
+  listUserProfiles,
   sendChatMessage,
   type DashboardSummary,
 } from "./services/platform";
@@ -744,6 +746,9 @@ function renderModule(module: ModuleData): string {
   if (module.id === "noticias" && authSession?.user.role === "admin") {
     return renderManagementModule("news", "Noticias del campus", "Publica comunicaciones oficiales y conserva un historial de versiones.");
   }
+  if (module.id === "perfil" && (authSession?.user.role === "admin" || authSession?.user.role === "super_admin")) {
+    return renderAdminModule();
+  }
   if (module.id === "actividades" && authSession && authSession.user.role !== "student") {
     return renderManagementModule("events", "Eventos del campus", "Programa talleres, encuentros y experiencias para tu comunidad académica.");
   }
@@ -888,6 +893,10 @@ function wireHome(): void {
 }
 
 function wireModule(module: ModuleData): void {
+  if (module.id === "perfil" && (authSession?.user.role === "admin" || authSession?.user.role === "super_admin")) {
+    wireAdminModule();
+    return;
+  }
   if (module.id === "comunidades" && authSession?.user.role === "student") {
     wireManagementModule("join");
     return;
@@ -935,6 +944,30 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
         list.innerHTML = events.length ? events.map((event) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${event.status ?? "draft"} · ${escapeHTML(event.location ?? "Campus")}</span><h2>${escapeHTML(event.title)}</h2><p>${escapeHTML(event.description ?? "Sin descripción")}</p></div><time>${new Date(event.startsAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay eventos programados.</p>`;
       } else {
         list.innerHTML = `<p class="ps-empty-state">Busca un grupo para comenzar.</p>`;
+      }
+
+      function renderAdminModule(): string {
+        return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+          <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Administración <span class="ps-breadcrumb">/ Control y auditoría</span></p><h1 id="module-title">Centro de control<span class="ps-heading-period">.</span></h1><p class="ps-module-description">Consulta usuarios y trazabilidad operativa sin modificar permisos de forma accidental.</p></div><div class="ps-module-total"><span>Solo lectura</span><strong>✓</strong></div></div>
+          <div class="ps-admin-panels">
+            <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong><span>Estado actual</span></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section>
+            <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong><span>Últimos cambios</span></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section>
+          </div>
+        </section>`;
+      }
+
+      function wireAdminModule(): void {
+        const usersList = document.querySelector<HTMLDivElement>("#admin-users-list");
+        const auditList = document.querySelector<HTMLDivElement>("#admin-audit-list");
+        if (!usersList || !auditList) return;
+        void Promise.all([listUserProfiles(), listAuditLogs()]).then(([users, logs]) => {
+          usersList.innerHTML = users.length ? users.map((user) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${user.role ?? "student"} · ${user.status ?? "active"}</span><h2>${escapeHTML(user.displayName)}</h2><p>${escapeHTML(user.email)}${user.institution ? ` · ${escapeHTML(user.institution)}` : ""}</p></div><strong>${user.educationalLevel ?? "Campus"}</strong></article>`).join("") : `<p class="ps-empty-state">No hay perfiles disponibles.</p>`;
+          auditList.innerHTML = logs.length ? logs.slice(0, 20).map((log) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(log.entityType)}</span><h2>${escapeHTML(log.action)}</h2><p>Actor: ${escapeHTML(log.actorId)}</p></div><time>${new Date(log.createdAt).toLocaleString("es-CO")}</time></article>`).join("") : `<p class="ps-empty-state">No hay registros de auditoría.</p>`;
+        }).catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : "No se pudo cargar el centro de control.";
+          usersList.innerHTML = `<p class="ps-empty-state">${escapeHTML(message)}</p>`;
+          auditList.innerHTML = "";
+        });
       }
     } catch (error) {
       feedback.textContent = error instanceof Error ? error.message : "No se pudo cargar la información.";

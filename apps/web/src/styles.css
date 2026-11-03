@@ -716,7 +716,12 @@
 .ps-management-card h2 { margin: 8px 0 4px; color: var(--blue); font-size: 17px; }
 .ps-management-card p { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
 .ps-management-card > strong, .ps-management-card time { flex: 0 0 auto; color: var(--cyan); font-size: 11px; font-weight: 900; }
+.ps-admin-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.ps-management-panel { display: grid; align-content: start; gap: 12px; min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: #fff; }
+.ps-management-panel .ps-management-card { padding: 12px; }
+.ps-management-panel .ps-management-card h2 { font-size: 14px; }
 @keyframes ps-spin { to { transform: rotate(360deg); } }
+@media (max-width: 720px) { .ps-admin-panels { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .ps-role-workspace { grid-template-columns: 1fr; margin-inline: 18px; } .ps-role-metrics { grid-template-columns: repeat(2, 1fr); } }
 
 .ps-edge-preview { width: min(250px, calc(100% - 48px)); min-height: 42px; border-color: rgba(203, 221, 224, .68); border-radius: 0 0 38px 38px; border-top: 0; padding: 5px 15px 8px; background: rgba(250, 253, 253, .6); box-shadow: 0 4px 12px rgba(29, 67, 76, .045); filter: none; opacity: .66; backdrop-filter: blur(4px); }
