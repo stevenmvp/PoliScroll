@@ -6,7 +6,7 @@ const client = generateClient<Schema>();
 
 export async function ensureUserProfile(session: AuthSession): Promise<void> {
   const profiles = await client.models.UserProfile.list({
-    filter: { owner: { eq: session.user.id } },
+    filter: { email: { eq: session.user.email } },
     limit: 1,
   });
 

@@ -85,6 +85,16 @@ export async function listUserProfiles(): Promise<Schema["UserProfile"]["type"][
   return result.data;
 }
 
+export async function updateUserProfileStatus(id: string, status: "active" | "suspended" | "pending"): Promise<void> {
+  const result = await client.models.UserProfile.update({ id, status });
+  if (result.errors?.length) throw new Error("No se pudo actualizar el estado del usuario.");
+}
+
+export async function deleteUserProfile(id: string): Promise<void> {
+  const result = await client.models.UserProfile.delete({ id });
+  if (result.errors?.length) throw new Error("No se pudo eliminar el registro del usuario.");
+}
+
 export async function listAuditLogs(): Promise<Schema["AuditLog"]["type"][]> {
   const result = await client.models.AuditLog.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudo cargar la auditoría.");
@@ -177,6 +187,11 @@ export async function createNewsArticle(input: {
     version: 1,
   });
   if (result.errors?.length) throw new Error("No se pudo publicar la noticia.");
+}
+
+export async function archiveNewsArticle(id: string): Promise<void> {
+  const result = await client.models.NewsArticle.update({ id, status: "archived" });
+  if (result.errors?.length) throw new Error("No se pudo retirar la noticia.");
 }
 
 export async function listCampusEvents(): Promise<Schema["CampusEvent"]["type"][]> {

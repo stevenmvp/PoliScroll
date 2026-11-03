@@ -47,6 +47,9 @@ import {
   listTutoringBookings,
   updateTutoringBookingStatus,
   listUserProfiles,
+  updateUserProfileStatus,
+  deleteUserProfile,
+  archiveNewsArticle,
   markChatRead,
   sendChatMessage,
   type DashboardSummary,
@@ -1128,7 +1131,7 @@ function wireTutoringModule(): void {
 }
 
 function renderAdminModule(): string {
-  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Control y auditoría</p><h1 id="module-title">Centro de control.</h1><p class="ps-module-description">Consulta usuarios y trazabilidad operativa.</p></div></div><div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section></div></section>`;
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Control y auditoría</p><h1 id="module-title">Centro de control.</h1><p class="ps-module-description">Administra usuarios, publicaciones y operaciones del campus desde un solo lugar.</p></div></div><form class="ps-management-form" id="admin-news-form"><div class="ps-management-form-heading"><strong>Publicar noticia</strong><span>Visible para la comunidad</span></div><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Resumen<input name="summary" maxlength="180" /></label></div><label>Contenido<textarea name="body" required maxlength="2000"></textarea></label><button class="ps-create-button" type="submit">Publicar noticia <span>↗</span></button><p class="ps-management-feedback" id="admin-feedback" role="status"></p></form><div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Usuarios registrados</strong><span>Estado y acciones</span></div><div class="ps-management-list" id="admin-users-list"><p class="ps-empty-state">Cargando usuarios…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Noticias publicadas</strong><span>Publicar o retirar</span></div><div class="ps-management-list" id="admin-news-list"><p class="ps-empty-state">Cargando noticias…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Auditoría reciente</strong><span>Últimos cambios</span></div><div class="ps-management-list" id="admin-audit-list"><p class="ps-empty-state">Cargando auditoría…</p></div></section></div></section>`;
 }
 
 function renderStudentProgressModule(): string {
@@ -1141,10 +1144,46 @@ function renderTeacherReviewModule(): string {
 
 function wireAdminModule(): void {
   const users = document.querySelector<HTMLDivElement>("#admin-users-list");
+  const news = document.querySelector<HTMLDivElement>("#admin-news-list");
   const audit = document.querySelector<HTMLDivElement>("#admin-audit-list");
-  if (!users || !audit) return;
-  void Promise.all([listUserProfiles(), listAuditLogs()]).then(([profiles, logs]) => {
-    users.innerHTML = profiles.map((profile) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${profile.role ?? "student"} · ${profile.status ?? "active"}</span><h2>${escapeHTML(profile.displayName)}</h2><p>${escapeHTML(profile.email)}</p></div></article>`).join("") || `<p class="ps-empty-state">No hay perfiles.</p>`;
+  const feedback = document.querySelector<HTMLParagraphElement>("#admin-feedback");
+  if (!users || !audit || !authSession) return;
+  document.querySelector<HTMLFormElement>("#admin-news-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = new FormData(event.currentTarget as HTMLFormElement);
+    if (feedback) feedback.textContent = "Publicando noticia…";
+    void createNewsArticle({
+      title: String(values.get("title") ?? "").trim(),
+      summary: String(values.get("summary") ?? "").trim(),
+      body: String(values.get("body") ?? "").trim(),
+      authorId: authSession!.user.id,
+    }).then(() => { if (feedback) feedback.textContent = "Noticia publicada."; render(); }).catch((error: unknown) => { if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar la noticia."; });
+  });
+  void Promise.all([listUserProfiles(), listAuditLogs(), listNewsArticles()]).then(([profiles, logs, articles]) => {
+    const uniqueProfiles = [...new Map(profiles.map((profile) => [profile.email.toLowerCase(), profile])).values()];
+    users.innerHTML = uniqueProfiles.map((profile) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${profile.role ?? "student"} · ${profile.status ?? "active"}</span><h2>${escapeHTML(profile.displayName)}</h2><p>${escapeHTML(profile.email)}</p></div><div class="ps-inline-actions"><button class="ps-secondary-button" type="button" data-user-status="${profile.status === "suspended" ? "active" : "suspended"}" data-user-id="${profile.id}">${profile.status === "suspended" ? "Habilitar" : "Suspender"}</button>${profile.id !== authSession!.user.id ? `<button class="ps-secondary-button" type="button" data-delete-user="${profile.id}">Eliminar registro</button>` : ""}</div></article>`).join("") || `<p class="ps-empty-state">No hay perfiles.</p>`;
+    users.querySelectorAll<HTMLButtonElement>("[data-user-status]").forEach((button) => button.addEventListener("click", () => {
+      const id = button.dataset.userId;
+      const status = button.dataset.userStatus as "active" | "suspended";
+      if (!id) return;
+      button.disabled = true;
+      void updateUserProfileStatus(id, status).then(() => render()).catch((error: unknown) => { button.disabled = false; if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo actualizar el usuario."; });
+    }));
+    users.querySelectorAll<HTMLButtonElement>("[data-delete-user]").forEach((button) => button.addEventListener("click", () => {
+      const id = button.dataset.deleteUser;
+      if (!id || !window.confirm("¿Eliminar este registro de perfil? La cuenta Cognito no se elimina.")) return;
+      button.disabled = true;
+      void deleteUserProfile(id).then(() => render()).catch((error: unknown) => { button.disabled = false; if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo eliminar el registro."; });
+    }));
+    if (news) {
+      news.innerHTML = articles.length ? articles.map((article) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${article.status ?? "draft"} · v${article.version ?? 1}</span><h2>${escapeHTML(article.title)}</h2><p>${escapeHTML(article.summary ?? "")}</p></div>${article.status !== "archived" ? `<button class="ps-secondary-button" type="button" data-archive-news="${article.id}">Retirar</button>` : ""}</article>`).join("") : `<p class="ps-empty-state">No hay noticias.</p>`;
+      news.querySelectorAll<HTMLButtonElement>("[data-archive-news]").forEach((button) => button.addEventListener("click", () => {
+        const id = button.dataset.archiveNews;
+        if (!id) return;
+        button.disabled = true;
+        void archiveNewsArticle(id).then(() => render()).catch((error: unknown) => { button.disabled = false; if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo retirar la noticia."; });
+      }));
+    }
     audit.innerHTML = logs.slice(0, 20).map((log) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(log.entityType)}</span><h2>${escapeHTML(log.action)}</h2><p>${escapeHTML(log.actorId)}</p></div></article>`).join("") || `<p class="ps-empty-state">No hay auditoría.</p>`;
   }).catch((error: unknown) => { users.textContent = error instanceof Error ? error.message : "No se pudo cargar el centro de control."; });
 }
