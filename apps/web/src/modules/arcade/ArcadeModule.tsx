@@ -52,7 +52,7 @@ export default function App({ onGameResult }: ArcadeModuleProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col justify-between selection:bg-indigo-500/20 selection:text-indigo-900">
+    <div className="min-h-0 w-full overflow-x-hidden bg-[#f8fafc] text-slate-900 flex flex-col justify-between selection:bg-indigo-500/20 selection:text-indigo-900">
       <div>
         {/* Universal Top Bar */}
         <Navbar
@@ -65,7 +65,7 @@ export default function App({ onGameResult }: ArcadeModuleProps) {
         />
 
         {/* Main View Router */}
-        <main className="pb-12">
+        <main className="min-h-0 pb-8">
           {activeWorkoutCount !== null ? (
             <WorkoutRunner
               totalGames={activeWorkoutCount}

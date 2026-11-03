@@ -28,6 +28,13 @@ export interface GameArticle {
   tips: string[];
 }
 
+export interface GameResourcesDeclaration {
+  fonts?: string[];
+  images?: string[];
+  animations?: string[];
+  sounds?: string[];
+}
+
 export interface GameDefinition {
   id: string;
   title: string;
@@ -46,6 +53,7 @@ export interface GameDefinition {
   accentColor: string;
   unlockedByDefault: boolean;
   unlockCost: number;
+  resources?: GameResourcesDeclaration;
   Component: React.ComponentType<GameInstanceProps>;
 }
 
