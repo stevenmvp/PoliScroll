@@ -20,10 +20,12 @@ import {
   recordActivityEvent,
 } from "./services/data";
 import {
+  createCampusEvent,
   createNewsArticle,
   createStudyGroup,
   dashboardRoleTitle,
   getDashboardSummary,
+  listCampusEvents,
   listNewsArticles,
   listStudyGroups,
   type DashboardSummary,
@@ -716,6 +718,9 @@ function renderModule(module: ModuleData): string {
   if (module.id === "noticias" && authSession?.user.role === "admin") {
     return renderManagementModule("news", "Noticias del campus", "Publica comunicaciones oficiales y conserva un historial de versiones.");
   }
+  if (module.id === "actividades" && authSession && authSession.user.role !== "student") {
+    return renderManagementModule("events", "Eventos del campus", "Programa talleres, encuentros y experiencias para tu comunidad académica.");
+  }
   if (isGames) {
     return `<section class="ps-module-view ps-arcade-module" aria-labelledby="module-title">
       <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Juegos <span class="ps-breadcrumb">/ Vortex Arcade</span></p><h1 id="module-title">Vortex Arcade<span class="ps-heading-period">.</span></h1><p class="ps-module-description">El arcade educativo de PoliScroll: 16 juegos 2D y 3D, entrenamientos, metrónomo, sonidos y tutor académico.</p></div><div class="ps-module-total"><span>Juegos portados</span><strong>16</strong></div></div>
@@ -723,16 +728,18 @@ function renderModule(module: ModuleData): string {
     </section>`;
   }
 
-  function renderManagementModule(type: "groups" | "news", title: string, description: string): string {
+  function renderManagementModule(type: "groups" | "news" | "events", title: string, description: string): string {
     const isGroups = type === "groups";
+    const isNews = type === "news";
+    const formId = isGroups ? "group-form" : isNews ? "news-form" : "event-form";
     return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
-      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Gestión <span class="ps-breadcrumb">/ ${title}</span></p><h1 id="module-title">${title}<span class="ps-heading-period">.</span></h1><p class="ps-module-description">${description}</p></div><div class="ps-module-total"><span>${isGroups ? "Gestión académica" : "Publicación"}</span><strong>+</strong></div></div>
-      <form class="ps-management-form" id="${isGroups ? "group-form" : "news-form"}">
-        <div class="ps-management-form-heading"><strong>${isGroups ? "Nuevo grupo" : "Nueva publicación"}</strong><span>Los cambios se guardan en el campus</span></div>
-        <label>${isGroups ? "Nombre del grupo" : "Título"}<input name="title" required maxlength="120" placeholder="${isGroups ? "Ej. Anatomía Secundaria 01" : "Título de la publicación"}" /></label>
-        <label>Descripción<textarea name="description" required maxlength="500" placeholder="${isGroups ? "Describe el propósito del grupo" : "Resumen visible en el campus"}></textarea></label>
-        ${isGroups ? `<div class="ps-management-grid"><label>Código<input name="code" required pattern="[A-Za-z0-9-]{4,20}" placeholder="ANAT-01" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option>Universitaria</option></select></label></div>` : `<label>Contenido<textarea name="body" required maxlength="5000" placeholder="Escribe el contenido completo"></textarea></label>`}
-        <button class="ps-create-button" type="submit">${isGroups ? "Crear grupo" : "Publicar noticia"} <span>↗</span></button>
+      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Gestión <span class="ps-breadcrumb">/ ${title}</span></p><h1 id="module-title">${title}<span class="ps-heading-period">.</span></h1><p class="ps-module-description">${description}</p></div><div class="ps-module-total"><span>${isGroups ? "Gestión académica" : isNews ? "Publicación" : "Agenda"}</span><strong>+</strong></div></div>
+      <form class="ps-management-form" id="${formId}">
+        <div class="ps-management-form-heading"><strong>${isGroups ? "Nuevo grupo" : isNews ? "Nueva publicación" : "Nuevo evento"}</strong><span>Los cambios se guardan en el campus</span></div>
+        <label>${isGroups || isNews ? (isGroups ? "Nombre del grupo" : "Título") : "Título del evento"}<input name="title" required maxlength="120" placeholder="${isGroups ? "Ej. Anatomía Secundaria 01" : isNews ? "Título de la publicación" : "Ej. Taller de robótica"}" /></label>
+        <label>Descripción<textarea name="description" required maxlength="500" placeholder="${isGroups ? "Describe el propósito del grupo" : isNews ? "Resumen visible en el campus" : "Describe la actividad y sus objetivos"}></textarea></label>
+        ${isGroups ? `<div class="ps-management-grid"><label>Código<input name="code" required pattern="[A-Za-z0-9-]{4,20}" placeholder="ANAT-01" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option>Universitaria</option></select></label></div>` : isNews ? `<label>Contenido<textarea name="body" required maxlength="5000" placeholder="Escribe el contenido completo"></textarea></label>` : `<div class="ps-management-grid"><label>Lugar<input name="location" required maxlength="120" placeholder="Auditorio principal" /></label><label>Aforo<input name="capacity" type="number" min="1" max="10000" placeholder="100" /></label><label>Inicio<input name="startsAt" type="datetime-local" required /></label><label>Fin<input name="endsAt" type="datetime-local" /></label></div>`}
+        <button class="ps-create-button" type="submit">${isGroups ? "Crear grupo" : isNews ? "Publicar noticia" : "Crear evento"} <span>↗</span></button>
         <p class="ps-management-feedback" id="management-feedback" role="status"></p>
       </form>
       <div class="ps-management-list" id="management-list"><p class="ps-empty-state">Cargando información…</p></div>
@@ -852,6 +859,10 @@ function wireModule(module: ModuleData): void {
     wireManagementModule("news");
     return;
   }
+  if (module.id === "actividades" && authSession?.user.role !== "student") {
+    wireManagementModule("events");
+    return;
+  }
   document.querySelector<HTMLSelectElement>("#module-filter")?.addEventListener("change", (event) => {
     activityFilter = (event.currentTarget as HTMLSelectElement).value;
     renderFeedItems(module);
@@ -864,8 +875,8 @@ function wireModule(module: ModuleData): void {
   renderFeedItems(module);
 }
 
-function wireManagementModule(type: "groups" | "news"): void {
-  const form = document.querySelector<HTMLFormElement>(type === "groups" ? "#group-form" : "#news-form");
+function wireManagementModule(type: "groups" | "news" | "events"): void {
+  const form = document.querySelector<HTMLFormElement>(type === "groups" ? "#group-form" : type === "news" ? "#news-form" : "#event-form");
   const list = document.querySelector<HTMLDivElement>("#management-list");
   const feedback = document.querySelector<HTMLParagraphElement>("#management-feedback");
   if (!form || !list || !feedback || !authSession) return;
@@ -875,9 +886,12 @@ function wireManagementModule(type: "groups" | "news"): void {
       if (type === "groups") {
         const groups = await listStudyGroups();
         list.innerHTML = groups.length ? groups.map((group) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${group.educationalLevel ?? "Campus"} · ${group.status ?? "active"}</span><h2>${escapeHTML(group.name)}</h2><p>${escapeHTML(group.description ?? "Sin descripción")}</p></div><strong>${escapeHTML(group.code)}</strong></article>`).join("") : `<p class="ps-empty-state">Todavía no hay grupos creados.</p>`;
-      } else {
+      } else if (type === "news") {
         const articles = await listNewsArticles();
         list.innerHTML = articles.length ? articles.map((article) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${article.status ?? "draft"} · v${article.version ?? 1}</span><h2>${escapeHTML(article.title)}</h2><p>${escapeHTML(article.summary ?? "")}</p></div><time>${article.publishedAt ? new Date(article.publishedAt).toLocaleDateString("es-CO") : "Borrador"}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay publicaciones.</p>`;
+      } else {
+        const events = await listCampusEvents();
+        list.innerHTML = events.length ? events.map((event) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${event.status ?? "draft"} · ${escapeHTML(event.location ?? "Campus")}</span><h2>${escapeHTML(event.title)}</h2><p>${escapeHTML(event.description ?? "Sin descripción")}</p></div><time>${new Date(event.startsAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}</time></article>`).join("") : `<p class="ps-empty-state">Todavía no hay eventos programados.</p>`;
       }
     } catch (error) {
       feedback.textContent = error instanceof Error ? error.message : "No se pudo cargar la información.";
@@ -897,14 +911,24 @@ function wireManagementModule(type: "groups" | "news"): void {
         teacherId: authSession!.user.id,
         educationalLevel: String(data.get("educationalLevel") ?? "Universitaria") as "Primaria" | "Secundaria" | "Universitaria",
       })
-      : createNewsArticle({
+      : type === "news"
+        ? createNewsArticle({
         title: String(data.get("title") ?? "").trim(),
         summary: String(data.get("description") ?? "").trim(),
         body: String(data.get("body") ?? "").trim(),
         authorId: authSession!.user.id,
-      });
+        })
+        : createCampusEvent({
+          title: String(data.get("title") ?? "").trim(),
+          description: String(data.get("description") ?? "").trim(),
+          location: String(data.get("location") ?? "").trim(),
+          startsAt: new Date(String(data.get("startsAt") ?? "")).toISOString(),
+          endsAt: data.get("endsAt") ? new Date(String(data.get("endsAt"))).toISOString() : undefined,
+          organizerId: authSession!.user.id,
+          capacity: data.get("capacity") ? Number(data.get("capacity")) : undefined,
+        });
     void operation.then(() => {
-      feedback.textContent = type === "groups" ? "Grupo creado correctamente." : "Noticia publicada correctamente.";
+      feedback.textContent = type === "groups" ? "Grupo creado correctamente." : type === "news" ? "Noticia publicada correctamente." : "Evento creado correctamente.";
       form.reset();
       void renderList();
     }).catch((error: unknown) => {

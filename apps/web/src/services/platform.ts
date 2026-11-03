@@ -119,3 +119,25 @@ export async function createNewsArticle(input: {
   });
   if (result.errors?.length) throw new Error("No se pudo publicar la noticia.");
 }
+
+export async function listCampusEvents(): Promise<Schema["CampusEvent"]["type"][]> {
+  const result = await client.models.CampusEvent.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar los eventos.");
+  return result.data;
+}
+
+export async function createCampusEvent(input: {
+  title: string;
+  description: string;
+  location: string;
+  startsAt: string;
+  endsAt?: string;
+  organizerId: string;
+  capacity?: number;
+}): Promise<void> {
+  const result = await client.models.CampusEvent.create({
+    ...input,
+    status: "published",
+  });
+  if (result.errors?.length) throw new Error("No se pudo crear el evento.");
+}
