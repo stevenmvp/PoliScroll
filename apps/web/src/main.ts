@@ -367,6 +367,7 @@ let toastTimer = 0;
 const savedItems = new Set<string>();
 let authReady = false;
 let authSession: AuthSession | null = null;
+let adminPreviewRole: "admin" | "teacher" | "student" | null = null;
 let authView: "login" | "register" | "confirm" | "forgot" = "login";
 let selectedLoginRole: UserRole = "student";
 let pendingEmail = "";
@@ -407,16 +408,19 @@ function render(): void {
         <button class="ps-brand" id="go-home" type="button" aria-label="Volver al menu principal">
           <span class="ps-brand-mark" aria-hidden="true">P</span><span>PoliScroll</span>
         </button>
-        <details class="ps-desktop-menu">
-          <summary><span aria-hidden="true">☰</span> Módulos</summary>
+        <button class="ps-module-menu-trigger" id="open-module-menu" type="button" aria-expanded="false"><span aria-hidden="true">☰</span> Módulos</button>
+        <aside class="ps-module-drawer" id="module-drawer" aria-label="Módulos del campus" aria-hidden="true">
+          <div class="ps-module-drawer-heading"><strong>PoliScroll</strong><button id="close-module-menu" type="button" aria-label="Cerrar menú">×</button></div>
           <div class="ps-desktop-menu-panel" role="menu">
             ${modules.map((module) => `<button type="button" data-bottom-module="${module.id}" role="menuitem"><span aria-hidden="true">${module.icon}</span><span><strong>${module.title}</strong><small>${module.category}</small></span><b aria-hidden="true">↗</b></button>`).join("")}
           </div>
-        </details>
+        </aside>
+        <div class="ps-module-drawer-backdrop" id="module-drawer-backdrop" hidden></div>
         <div class="ps-topbar-right">
           <span class="ps-campus"><span class="ps-online-dot"></span> Campus conectado</span>
           ${screen === "module" ? `<button class="ps-back" id="back-to-menu" type="button"><span aria-hidden="true">←</span> Menú principal</button>` : ""}
-          <span class="ps-role-badge">${roleLabel(authSession.user.role)}</span>
+          ${authSession.user.role === "admin" || authSession.user.role === "super_admin" ? `<div class="ps-perspective-switcher" aria-label="Perspectiva administrativa"><span>Vista</span><button type="button" class="${adminPreviewRole === "student" ? "is-active" : ""}" data-preview-role="student">Estudiante</button><button type="button" class="${adminPreviewRole === "teacher" ? "is-active" : ""}" data-preview-role="teacher">Docente</button><button type="button" class="${!adminPreviewRole ? "is-active" : ""}" data-preview-role="admin">Admin</button></div>` : ""}
+          <span class="ps-role-badge">${roleLabel(adminPreviewRole ?? authSession.user.role)}</span>
           <button class="ps-user-mark" id="sign-out" type="button" aria-label="Cerrar sesión">${initialsForSession()}</button>
         </div>
       </header>
@@ -440,6 +444,22 @@ function render(): void {
   `;
 
   document.querySelector<HTMLButtonElement>("#go-home")?.addEventListener("click", goHome);
+  const moduleDrawer = document.querySelector<HTMLElement>("#module-drawer");
+  const moduleDrawerBackdrop = document.querySelector<HTMLDivElement>("#module-drawer-backdrop");
+  const closeModuleDrawer = () => {
+    moduleDrawer?.classList.remove("is-open");
+    moduleDrawer?.setAttribute("aria-hidden", "true");
+    document.querySelector<HTMLButtonElement>("#open-module-menu")?.setAttribute("aria-expanded", "false");
+    if (moduleDrawerBackdrop) moduleDrawerBackdrop.hidden = true;
+  };
+  document.querySelector<HTMLButtonElement>("#open-module-menu")?.addEventListener("click", () => {
+    moduleDrawer?.classList.add("is-open");
+    moduleDrawer?.setAttribute("aria-hidden", "false");
+    document.querySelector<HTMLButtonElement>("#open-module-menu")?.setAttribute("aria-expanded", "true");
+    if (moduleDrawerBackdrop) moduleDrawerBackdrop.hidden = false;
+  });
+  document.querySelector<HTMLButtonElement>("#close-module-menu")?.addEventListener("click", closeModuleDrawer);
+  moduleDrawerBackdrop?.addEventListener("click", closeModuleDrawer);
   document.querySelector<HTMLButtonElement>("#back-to-menu")?.addEventListener("click", goHome);
   document.querySelector<HTMLButtonElement>("#sign-out")?.addEventListener("click", async () => {
     await logout();
@@ -448,8 +468,16 @@ function render(): void {
     history.replaceState({ screen: "auth" }, "", "#login");
     render();
   });
+  document.querySelectorAll<HTMLButtonElement>("[data-preview-role]").forEach((button) => button.addEventListener("click", () => {
+    const role = button.dataset.previewRole;
+    adminPreviewRole = role === "student" || role === "teacher" ? role : null;
+    render();
+  }));
   document.querySelectorAll<HTMLButtonElement>("[data-bottom-module]").forEach((button) => {
-    button.addEventListener("click", () => openModule(button.dataset.bottomModule ?? modules[0].id));
+    button.addEventListener("click", () => {
+      closeModuleDrawer();
+      openModule(button.dataset.bottomModule ?? modules[0].id);
+    });
   });
   document.querySelectorAll<HTMLButtonElement>("[data-role-action]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -507,8 +535,13 @@ function render(): void {
   else wireModule(selectedModule);
 }
 
-function roleLabel(role: UserRole): string {
+function roleLabel(role: UserRole | "admin" | "teacher" | "student"): string {
   return role === "admin" ? "Administrador" : role === "teacher" ? "Docente" : "Estudiante";
+}
+
+function visibleRole(): UserRole {
+  if ((authSession?.user.role === "admin" || authSession?.user.role === "super_admin") && adminPreviewRole) return adminPreviewRole;
+  return authSession?.user.role ?? "student";
 }
 
 function initialsForSession(): string {
@@ -777,14 +810,14 @@ function renderModule(module: ModuleData): string {
   const isGames = module.id === "juegos";
   if (module.id === "cursos") return renderCoursesModule(module);
   if (module.id === "tutorias") return renderTutoringModule(module);
-  if (module.id === "actividades" && authSession?.user.role === "student") return renderActivitiesModule(module);
-  if (module.id === "comunidades" && authSession?.user.role === "student") {
+  if (module.id === "actividades" && visibleRole() === "student") return renderActivitiesModule(module);
+  if (module.id === "comunidades" && visibleRole() === "student") {
     return renderManagementModule("join", "Únete a un grupo", "Ingresa el código que te compartió tu docente y comienza a participar.");
   }
 
   function renderCoursesModule(module: ModuleData): string {
-    const publisher = authSession?.user.role !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="course-publisher"><strong>Publicar curso</strong><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option selected>Universitaria</option></select></label><label>Modalidad<select name="modality"><option value="Presencial">Presencial</option><option value="Virtual">Virtual</option><option value="Hibrido">Híbrido</option></select></label><label>Duración (semanas)<input name="durationWeeks" type="number" min="1" max="52" value="4" required /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea><button class="ps-create-button" type="submit">Publicar curso <span>↗</span></button></form>` : "";
-    const enrollmentPanel = authSession?.user.role !== "student" ? `<section class="ps-management-panel ps-course-enrollments"><div class="ps-management-form-heading"><strong>Estudiantes inscritos</strong><span>Seguimiento de matrícula</span></div><div class="ps-management-list" id="course-enrollment-list"><p class="ps-empty-state">Cargando inscripciones…</p></div></section>` : "";
+    const publisher = visibleRole() !== "student" ? `<form class="ps-management-form ps-inline-publisher" id="course-publisher"><strong>Publicar curso</strong><div class="ps-management-grid"><label>Título<input name="title" required maxlength="100" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option selected>Universitaria</option></select></label><label>Modalidad<select name="modality"><option value="Presencial">Presencial</option><option value="Virtual">Virtual</option><option value="Hibrido">Híbrido</option></select></label><label>Duración (semanas)<input name="durationWeeks" type="number" min="1" max="52" value="4" required /></label><label>Imagen de portada<input name="coverImageUrl" type="url" placeholder="https://..." /></label><label>Enlace de materiales<input name="resourceLinks" type="url" placeholder="https://drive.google.com/..." /></label></div><label>Descripción<textarea name="description" required maxlength="500"></textarea></label><label>Materiales y documentación<textarea name="materialsDescription" maxlength="1000" placeholder="Describe lecturas, documentos o instrucciones de acceso"></textarea></label><button class="ps-create-button" type="submit">Publicar curso <span>↗</span></button></form>` : "";
+    const enrollmentPanel = visibleRole() !== "student" ? `<section class="ps-management-panel ps-course-enrollments"><div class="ps-management-form-heading"><strong>Estudiantes inscritos</strong><span>Seguimiento de matrícula</span></div><div class="ps-management-list" id="course-enrollment-list"><p class="ps-empty-state">Cargando inscripciones…</p></div></section>` : "";
     return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Aprendizaje / Cursos</p><h1 id="module-title">Rutas de aprendizaje.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Cursos publicados</span><strong id="course-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="courses-list"><p class="ps-empty-state">Cargando cursos publicados…</p></div>${enrollmentPanel}<p class="ps-management-feedback" id="courses-feedback" role="status"></p></section>`;
   }
 
@@ -797,27 +830,27 @@ function renderModule(module: ModuleData): string {
     const bookingPanel = authSession?.user.role !== "student" ? `<section class="ps-management-panel ps-tutoring-bookings"><div class="ps-management-form-heading"><strong>Solicitudes recibidas</strong><span>Confirma o reprograma el acompañamiento</span></div><div class="ps-management-list" id="tutoring-bookings-list"><p class="ps-empty-state">Cargando solicitudes…</p></div></section>` : "";
     return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Acompañamiento / Tutorías</p><h1 id="module-title">Agenda una tutoría.</h1><p class="ps-module-description">${escapeHTML(module.description)}</p></div><div class="ps-module-total"><span>Áreas activas</span><strong id="tutoring-count">—</strong></div></div>${publisher}<div class="ps-data-grid" id="tutoring-list"><p class="ps-empty-state">Cargando tutores disponibles…</p></div>${bookingPanel}<p class="ps-management-feedback" id="tutoring-feedback" role="status"></p></section>`;
   }
-  if (module.id === "comunidades" && authSession && authSession.user.role !== "student") {
+  if (module.id === "comunidades" && authSession && visibleRole() !== "student") {
     return renderManagementModule("groups", "Grupos de estudio", "Crea grupos, organiza cohortes y acompaña el trabajo de tus estudiantes.");
   }
-  if (module.id === "noticias" && authSession?.user.role === "admin") {
+  if (module.id === "noticias" && (visibleRole() === "admin" || authSession?.user.role === "super_admin")) {
     return renderManagementModule("news", "Noticias del campus", "Publica comunicaciones oficiales y conserva un historial de versiones.");
   }
-  if (module.id === "perfil" && (authSession?.user.role === "admin" || authSession?.user.role === "super_admin")) {
+  if (module.id === "perfil" && (visibleRole() === "admin" || authSession?.user.role === "super_admin")) {
     return renderAdminModule();
   }
-  if (module.id === "perfil" && authSession?.user.role === "student") {
+  if (module.id === "perfil" && visibleRole() === "student") {
     return renderStudentProgressModule();
   }
-  if (module.id === "perfil" && authSession?.user.role === "teacher") {
+  if (module.id === "perfil" && visibleRole() === "teacher") {
     return renderTeacherReviewModule();
   }
-  if (module.id === "actividades" && authSession && authSession.user.role !== "student") {
+  if (module.id === "actividades" && authSession && visibleRole() !== "student") {
     return renderManagementModule("events", "Eventos del campus", "Programa talleres, encuentros y experiencias para tu comunidad académica.");
   }
   if (isGames) {
     return `<section class="ps-module-view ps-arcade-module" aria-labelledby="module-title">
-      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Juegos <span class="ps-breadcrumb">/ Vortex Arcade</span></p><h1 id="module-title">Vortex Arcade<span class="ps-heading-period">.</span></h1><p class="ps-module-description">El arcade educativo de PoliScroll: 16 juegos 2D y 3D, entrenamientos, metrónomo, sonidos y tutor académico.</p></div><div class="ps-module-total"><span>Juegos portados</span><strong>16</strong></div></div>
+      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Juegos <span class="ps-breadcrumb">/ PoliArcade</span></p><h1 id="module-title">PoliArcade<span class="ps-heading-period">.</span></h1><p class="ps-module-description">El arcade educativo de PoliScroll: 16 juegos 2D y 3D, entrenamientos, metrónomo, sonidos y tutor académico.</p></div><div class="ps-module-total"><span>Juegos portados</span><strong>16</strong></div></div>
       <div id="arcade-root" class="ps-arcade-root"></div>
     </section>`;
   }
@@ -842,7 +875,7 @@ function renderModule(module: ModuleData): string {
       <form class="ps-management-form" id="${formId}">
         <div class="ps-management-form-heading"><strong>${isGroups ? "Nuevo grupo" : isNews ? "Nueva publicación" : "Nuevo evento"}</strong><span>Los cambios se guardan en el campus</span></div>
         <label>${isGroups || isNews ? (isGroups ? "Nombre del grupo" : "Título") : "Título del evento"}<input name="title" required maxlength="120" placeholder="${isGroups ? "Ej. Anatomía Secundaria 01" : isNews ? "Título de la publicación" : "Ej. Taller de robótica"}" /></label>
-        <label>Descripción<textarea name="description" required maxlength="500" placeholder="${isGroups ? "Describe el propósito del grupo" : isNews ? "Resumen visible en el campus" : "Describe la actividad y sus objetivos"}></textarea></label>
+        <label>Descripción<textarea name="description" required maxlength="500" placeholder="${isGroups ? "Describe el propósito del grupo" : isNews ? "Resumen visible en el campus" : "Describe la actividad y sus objetivos"}"></textarea></label>
         ${isGroups ? `<div class="ps-management-grid"><label>Código<input name="code" required pattern="[A-Za-z0-9-]{4,20}" placeholder="ANAT-01" /></label><label>Nivel<select name="educationalLevel"><option>Primaria</option><option>Secundaria</option><option>Universitaria</option></select></label></div>` : isNews ? `<label>Contenido<textarea name="body" required maxlength="5000" placeholder="Escribe el contenido completo"></textarea></label>` : `<div class="ps-management-grid"><label>Lugar<input name="location" required maxlength="120" placeholder="Auditorio principal" /></label><label>Aforo<input name="capacity" type="number" min="1" max="10000" placeholder="100" /></label><label>Inicio<input name="startsAt" type="datetime-local" required /></label><label>Fin<input name="endsAt" type="datetime-local" /></label></div>`}
         <button class="ps-create-button" type="submit">${isGroups ? "Crear grupo" : isNews ? "Publicar noticia" : "Crear evento"} <span>↗</span></button>
         <p class="ps-management-feedback" id="management-feedback" role="status"></p>
@@ -943,27 +976,27 @@ function wireHome(): void {
 }
 
 function wireModule(module: ModuleData): void {
-  if (module.id === "perfil" && (authSession?.user.role === "admin" || authSession?.user.role === "super_admin")) {
+  if (module.id === "perfil" && (visibleRole() === "admin" || authSession?.user.role === "super_admin")) {
     wireAdminModule();
     return;
   }
-  if (module.id === "perfil" && (authSession?.user.role === "student" || authSession?.user.role === "teacher")) {
-    wireAcademicModule(authSession.user.role);
+  if (module.id === "perfil" && (visibleRole() === "student" || visibleRole() === "teacher")) {
+    wireAcademicModule(visibleRole());
     return;
   }
-  if (module.id === "comunidades" && authSession?.user.role === "student") {
+  if (module.id === "comunidades" && visibleRole() === "student") {
     wireManagementModule("join");
     return;
   }
-  if (module.id === "comunidades" && authSession?.user.role !== "student") {
+  if (module.id === "comunidades" && visibleRole() !== "student") {
     wireManagementModule("groups");
     return;
   }
-  if (module.id === "noticias" && authSession?.user.role === "admin") {
+  if (module.id === "noticias" && (visibleRole() === "admin" || authSession?.user.role === "super_admin")) {
     wireManagementModule("news");
     return;
   }
-  if (module.id === "actividades" && authSession?.user.role !== "student") {
+  if (module.id === "actividades" && visibleRole() !== "student") {
     wireManagementModule("events");
     return;
   }
@@ -971,7 +1004,7 @@ function wireModule(module: ModuleData): void {
     wireCoursesModule(module);
     return;
   }
-  if (module.id === "actividades" && authSession?.user.role === "student") {
+  if (module.id === "actividades" && visibleRole() === "student") {
     wireActivitiesModule();
     return;
   }
@@ -1008,6 +1041,9 @@ function wireCoursesModule(module: ModuleData): void {
       educationalLevel: String(values.get("educationalLevel")) as "Primaria" | "Secundaria" | "Universitaria",
       modality: String(values.get("modality")) as "Presencial" | "Virtual" | "Hibrido",
       durationWeeks: Number(values.get("durationWeeks")),
+      coverImageUrl: String(values.get("coverImageUrl") ?? "").trim() || undefined,
+      resourceLinks: String(values.get("resourceLinks") ?? "").trim() ? [String(values.get("resourceLinks")).trim()] : [],
+      materialsDescription: String(values.get("materialsDescription") ?? "").trim() || undefined,
     }).then(() => { feedback.textContent = "Curso publicado correctamente."; render(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar el curso."; });
   });
   void Promise.all([listCourses(), listCourseEnrollments()]).then(([courses, enrollments]) => {
@@ -1016,8 +1052,9 @@ function wireCoursesModule(module: ModuleData): void {
     list.innerHTML = courses.length
       ? courses.map((course) => {
         const enrolled = enrolledCourseIds.has(course.id);
-        const action = authSession?.user.role === "student" ? `<button class="ps-create-button" type="button" data-enroll-course="${course.id}"${enrolled ? " disabled" : ""}>${enrolled ? "Inscrito ✓" : "Inscribirme ↗"}</button>` : "";
-        return `<article class="ps-data-card"><span class="ps-feed-tag">${course.educationalLevel ?? "Campus"} · ${course.modality ?? "Flexible"}</span><h2>${escapeHTML(course.title)}</h2><p>${escapeHTML(course.description)}</p><small>${course.durationWeeks ?? "—"} semanas · Cupo ${course.capacity ?? "abierto"}</small>${action}</article>`;
+        const action = visibleRole() === "student" ? `<button class="ps-create-button" type="button" data-enroll-course="${course.id}"${enrolled ? " disabled" : ""}>${enrolled ? "Inscrito ✓" : "Inscribirme ↗"}</button>` : "";
+        const resourceLink = course.resourceLinks?.[0];
+        return `<article class="ps-data-card">${course.coverImageUrl ? `<img class="ps-course-cover" src="${escapeHTML(course.coverImageUrl)}" alt="" loading="lazy" />` : ""}<span class="ps-feed-tag">${course.educationalLevel ?? "Campus"} · ${course.modality ?? "Flexible"}</span><h2>${escapeHTML(course.title)}</h2><p>${escapeHTML(course.description)}</p>${course.materialsDescription ? `<p class="ps-course-materials">${escapeHTML(course.materialsDescription)}</p>` : ""}<small>${course.durationWeeks ?? "—"} semanas · Cupo ${course.capacity ?? "abierto"}</small>${resourceLink ? `<a class="ps-inline-link" href="${escapeHTML(resourceLink)}" target="_blank" rel="noreferrer">Abrir materiales ↗</a>` : ""}${action}</article>`;
       }).join("")
       : `<div class="ps-empty-state ps-data-empty"><strong>No hay cursos publicados todavía.</strong><span>Un docente puede publicar la primera ruta desde su espacio.</span>${module.items.slice(0, 3).map((item) => `<article class="ps-data-card ps-data-card-muted"><span class="ps-feed-tag">${escapeHTML(item.tag)}</span><h2>${escapeHTML(item.title)}</h2><p>${escapeHTML(item.description)}</p><small>${escapeHTML(item.meta)}</small></article>`).join("")}</div>`;
     list.querySelectorAll<HTMLButtonElement>("[data-enroll-course]").forEach((button) => button.addEventListener("click", () => {

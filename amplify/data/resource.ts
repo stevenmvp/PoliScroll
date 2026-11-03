@@ -123,6 +123,9 @@ const schema = a.schema({
       capacity: a.integer(),
       status: a.enum(["draft", "published", "closed"]),
       startsAt: a.datetime(),
+      coverImageUrl: a.string(),
+      resourceLinks: a.string().array(),
+      materialsDescription: a.string(),
     })
     .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 

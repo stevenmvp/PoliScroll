@@ -136,7 +136,7 @@ export default function App({ onGameResult }: ArcadeModuleProps) {
       <footer className="border-t border-slate-200 bg-white py-6 px-4 md:px-8 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">Vortex Arcade</span>
+            <span className="font-bold text-slate-800">PoliArcade</span>
             <span aria-hidden="true">·</span>
             <span>Entorno Académico Interactivo 2D &amp; 3D</span>
             <span aria-hidden="true">·</span>

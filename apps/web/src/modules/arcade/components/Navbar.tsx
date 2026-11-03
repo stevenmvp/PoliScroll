@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Sparkles className="w-4 h-4 text-white" />
           </div>
           <span className="text-lg md:text-xl font-black tracking-tight text-slate-900 whitespace-nowrap">
-            VORTEX<span className="text-indigo-600">.</span>ARCADE
+            POLI<span className="text-indigo-600">.</span>ARCADE
           </span>
         </button>
 

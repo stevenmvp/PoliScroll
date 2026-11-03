@@ -267,6 +267,9 @@ export async function createCourse(input: {
   durationWeeks?: number;
   capacity?: number;
   startsAt?: string;
+  coverImageUrl?: string;
+  resourceLinks?: string[];
+  materialsDescription?: string;
 }): Promise<void> {
   const result = await client.models.Course.create({ ...input, status: "published" });
   if (result.errors?.length) throw new Error("No se pudo publicar el curso.");
