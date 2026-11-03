@@ -429,7 +429,7 @@ function render(): void {
     button.addEventListener("click", () => {
       const actionIndex = Number(button.dataset.roleAction ?? 0);
       const destinations: Record<UserRole, string[]> = {
-        student: ["actividades", "perfil", "juegos"],
+        student: ["actividades-juego", "perfil", "juegos"],
         teacher: ["actividades", "comunidades", "perfil"],
         admin: ["perfil", "actividades", "noticias"],
         super_admin: ["perfil", "actividades", "noticias"],
