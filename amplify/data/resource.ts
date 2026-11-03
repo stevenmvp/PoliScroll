@@ -230,7 +230,7 @@ const schema = a.schema({
       createdAt: a.datetime().required(),
       actionUrl: a.string(),
     })
-    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+    .authorization((allow) => [allow.ownerDefinedIn("userId"), allow.groups(["admin", "teacher"]).to(["create"])]),
 });
 
 export type Schema = ClientSchema<typeof schema>;

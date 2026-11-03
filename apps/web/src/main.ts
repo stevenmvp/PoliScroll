@@ -22,6 +22,7 @@ import {
 import {
   createCampusEvent,
   createChatConversation,
+  createGradeRecord,
   createNewsArticle,
   createStudyGroup,
   dashboardRoleTitle,
@@ -33,6 +34,7 @@ import {
   listActivitySessions,
   listGradeRecords,
   listNewsArticles,
+  listNotifications,
   listStudyGroups,
   listUserProfiles,
   sendChatMessage,
@@ -971,13 +973,14 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
       function renderStudentProgressModule(): string {
         return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
           <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Tu recorrido <span class="ps-breadcrumb">/ Progreso</span></p><h1 id="module-title">Mi progreso<span class="ps-heading-period">.</span></h1><p class="ps-module-description">Revisa tus actividades completadas, puntuaciones y oportunidades para seguir aprendiendo.</p></div><div class="ps-module-total"><span>Sincronizado</span><strong>✓</strong></div></div>
-          <div class="ps-management-panel"><div class="ps-management-form-heading"><strong>Actividades realizadas</strong><span>Datos de tu cuenta</span></div><div class="ps-management-list" id="student-progress-list"><p class="ps-empty-state">Cargando progreso…</p></div></div>
+          <div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Actividades realizadas</strong><span>Datos de tu cuenta</span></div><div class="ps-management-list" id="student-progress-list"><p class="ps-empty-state">Cargando progreso…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Notificaciones</strong><span>Actualizaciones</span></div><div class="ps-management-list" id="student-notifications-list"><p class="ps-empty-state">Cargando notificaciones…</p></div></section></div>
         </section>`;
       }
 
       function renderTeacherReviewModule(): string {
         return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
           <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Espacio docente <span class="ps-breadcrumb">/ Seguimiento</span></p><h1 id="module-title">Seguimiento académico<span class="ps-heading-period">.</span></h1><p class="ps-module-description">Consulta las sesiones realizadas y las calificaciones disponibles para revisión.</p></div><div class="ps-module-total"><span>Registros</span><strong>↗</strong></div></div>
+          <form class="ps-management-form" id="grade-form"><div class="ps-management-form-heading"><strong>Registrar calificación</strong><span>Se notificará al estudiante</span></div><div class="ps-management-grid"><label>ID del estudiante<input name="studentId" required placeholder="Identificador de Cognito" /></label><label>ID de actividad<input name="activityId" placeholder="Opcional" /></label><label>Puntaje<input name="score" type="number" min="0" step="0.01" required /></label><label>Puntaje máximo<input name="maxScore" type="number" min="0.01" step="0.01" value="100" required /></label></div><label>Feedback<textarea name="feedback" maxlength="500" placeholder="Orientación para continuar"></textarea></label><button class="ps-create-button" type="submit">Guardar calificación <span>↗</span></button><p class="ps-management-feedback" id="grade-feedback" role="status"></p></form>
           <div class="ps-admin-panels"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Sesiones de actividad</strong><span>Últimos registros</span></div><div class="ps-management-list" id="teacher-sessions-list"><p class="ps-empty-state">Cargando sesiones…</p></div></section><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Calificaciones</strong><span>Últimos registros</span></div><div class="ps-management-list" id="teacher-grades-list"><p class="ps-empty-state">Cargando calificaciones…</p></div></section></div>
         </section>`;
       }
@@ -985,15 +988,37 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
       function wireAcademicModule(role: "student" | "teacher"): void {
         if (role === "student") {
           const list = document.querySelector<HTMLDivElement>("#student-progress-list");
-          if (!list) return;
+          const notificationsList = document.querySelector<HTMLDivElement>("#student-notifications-list");
+          if (!list || !notificationsList) return;
           void listActivitySessions().then((sessions) => {
             list.innerHTML = sessions.length ? sessions.slice().sort((a, b) => b.startedAt.localeCompare(a.startedAt)).map((session) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${session.completed ? "Completada" : session.abandoned ? "Abandonada" : "En progreso"} · ${session.topic ?? "Actividad"}</span><h2>${escapeHTML(session.activityTitle)}</h2><p>${session.finishedAt ? `Finalizada ${new Date(session.finishedAt).toLocaleDateString("es-CO")}` : "Todavía no finalizada"}</p></div><strong>${session.score ?? 0} pts</strong></article>`).join("") : `<p class="ps-empty-state">Aún no tienes actividades registradas.</p>`;
           }).catch((error: unknown) => { list.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudo cargar el progreso.")}</p>`; });
+          void listNotifications().then((notifications) => {
+            notificationsList.innerHTML = notifications.length ? notifications.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((notification) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${notification.readAt ? "Leída" : "Nueva"} · ${notification.type}</span><h2>${escapeHTML(notification.title)}</h2><p>${escapeHTML(notification.body)}</p></div><time>${new Date(notification.createdAt).toLocaleDateString("es-CO")}</time></article>`).join("") : `<p class="ps-empty-state">No tienes notificaciones.</p>`;
+          }).catch((error: unknown) => { notificationsList.innerHTML = `<p class="ps-empty-state">${escapeHTML(error instanceof Error ? error.message : "No se pudieron cargar las notificaciones.")}</p>`; });
           return;
         }
         const sessionsList = document.querySelector<HTMLDivElement>("#teacher-sessions-list");
         const gradesList = document.querySelector<HTMLDivElement>("#teacher-grades-list");
-        if (!sessionsList || !gradesList) return;
+        const gradeForm = document.querySelector<HTMLFormElement>("#grade-form");
+        const gradeFeedback = document.querySelector<HTMLParagraphElement>("#grade-feedback");
+        if (!sessionsList || !gradesList || !gradeForm || !gradeFeedback || !authSession) return;
+        gradeForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const values = new FormData(gradeForm);
+          gradeFeedback.textContent = "Guardando calificación…";
+          void createGradeRecord({
+            studentId: String(values.get("studentId") ?? "").trim(),
+            teacherId: authSession!.user.id,
+            activityId: String(values.get("activityId") ?? "").trim() || undefined,
+            score: Number(values.get("score")),
+            maxScore: Number(values.get("maxScore")),
+            feedback: String(values.get("feedback") ?? "").trim() || undefined,
+          }).then(() => {
+            gradeFeedback.textContent = "Calificación guardada y estudiante notificado.";
+            gradeForm.reset();
+          }).catch((error: unknown) => { gradeFeedback.textContent = error instanceof Error ? error.message : "No se pudo guardar la calificación."; });
+        });
         void Promise.all([listActivitySessions(), listGradeRecords()]).then(([sessions, grades]) => {
           sessionsList.innerHTML = sessions.length ? sessions.slice(0, 20).map((session) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${session.completed ? "Completada" : "Pendiente"} · ${session.topic ?? "Actividad"}</span><h2>${escapeHTML(session.activityTitle)}</h2><p>Estudiante: ${escapeHTML(session.owner ?? "Cuenta asociada")}</p></div><strong>${session.score ?? 0} pts</strong></article>`).join("") : `<p class="ps-empty-state">No hay sesiones disponibles.</p>`;
           gradesList.innerHTML = grades.length ? grades.slice(0, 20).map((grade) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${grade.activityId ? "Actividad" : "Registro académico"}</span><h2>${grade.feedback ? escapeHTML(grade.feedback) : "Calificación registrada"}</h2><p>Estudiante: ${escapeHTML(grade.studentId)}</p></div><strong>${grade.score}/${grade.maxScore}</strong></article>`).join("") : `<p class="ps-empty-state">No hay calificaciones disponibles.</p>`;

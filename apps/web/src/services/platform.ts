@@ -103,6 +103,35 @@ export async function listGradeRecords(): Promise<Schema["GradeRecord"]["type"][
   return result.data;
 }
 
+export async function createGradeRecord(input: {
+  studentId: string;
+  teacherId: string;
+  activityId?: string;
+  score: number;
+  maxScore: number;
+  feedback?: string;
+}): Promise<void> {
+  const result = await client.models.GradeRecord.create({
+    ...input,
+    recordedAt: new Date().toISOString(),
+  });
+  if (result.errors?.length) throw new Error("No se pudo registrar la calificación.");
+  const notification = await client.models.Notification.create({
+    userId: input.studentId,
+    title: "Nueva calificación disponible",
+    body: input.feedback ?? `Obtuviste ${input.score} de ${input.maxScore}.`,
+    type: "activity",
+    createdAt: new Date().toISOString(),
+  });
+  if (notification.errors?.length) throw new Error("La calificación se guardó, pero no se pudo notificar al estudiante.");
+}
+
+export async function listNotifications(): Promise<Schema["Notification"]["type"][]> {
+  const result = await client.models.Notification.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar las notificaciones.");
+  return result.data;
+}
+
 export async function listStudyGroups(): Promise<Schema["StudyGroup"]["type"][]> {
   const result = await client.models.StudyGroup.list({ limit: 1000 });
   if (result.errors?.length) throw new Error("No se pudieron cargar los grupos.");
