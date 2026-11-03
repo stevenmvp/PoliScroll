@@ -149,7 +149,7 @@ const gameTopics = [
 
 type SourceGame = Omit<EducationalGame, "topics" | "levels">;
 
-const sourceGames: SourceGame[] = [
+const sourceGameDefinitions: [string, string, string, string, string][] = [
   ["Memory Game", "memory-game", "Memoria", "Encuentra todas las parejas antes de terminar.", "▦"],
   ["Logic-Chain", "logic-chain", "Construcción lógica", "Conecta objetos y ejecuta una simulación.", "⌘"],
   ["Pattern Pulse", "pattern-pulse", "Secuencia", "Repite una secuencia que crece en cada ronda.", "⌁"],
@@ -200,7 +200,9 @@ const sourceGames: SourceGame[] = [
   ["pipe-mania", "pipe-mania", "Tuberías", "Conecta segmentos para crear un flujo.", "⌘"],
   ["portal-logic", "portal-logic", "Portales", "Elige el recorrido lógico hasta la salida.", "◉"],
   ["Tower of Hanoi", "tower-of-hanoi", "Torres", "Mueve discos respetando las reglas.", "△"],
-].map(([sourceGame, id, mechanic, description, icon]): SourceGame => ({
+];
+
+const sourceGames: SourceGame[] = sourceGameDefinitions.map(([sourceGame, id, mechanic, description, icon]): SourceGame => ({
   id, sourceGame, sourcePath: `recursos/mini-js-games-hub-main/games/${sourceGame}/script.js`, title: sourceGame, description, mechanic, originalMechanic: mechanic, skills: mechanic, difficulty: "Intermedio", icon,
 }));
 
