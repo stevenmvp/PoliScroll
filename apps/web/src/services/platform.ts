@@ -315,6 +315,11 @@ export async function listNotifications(): Promise<Schema["Notification"]["type"
   return result.data;
 }
 
+export async function markNotificationRead(id: string): Promise<void> {
+  const result = await client.models.Notification.update({ id, readAt: new Date().toISOString() });
+  if (result.errors?.length) throw new Error("No se pudo marcar la notificación como leída.");
+}
+
 export async function askTutor(prompt: string, context?: string): Promise<string> {
   const result = await client.queries.tutorFeedback({ prompt, context });
   if (result.errors?.length || !result.data?.answer) throw new Error("El tutor IA no está disponible en este momento.");

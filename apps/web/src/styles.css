@@ -924,3 +924,32 @@
 	.ps-pf-stats strong { font-size: 20px; }
 	.ps-pf-about { padding: 16px; }
 }
+
+/* Menús de la barra superior: notificaciones y perfil */
+.ps-menu-wrap { position: relative; }
+.ps-bell { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #bedbdc; border-radius: 50%; background: #fff; font-size: 16px; }
+.ps-bell-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--pink); color: #fff; font-size: 10px; font-weight: 800; line-height: 18px; text-align: center; }
+.ps-bell-badge[hidden], .ps-dropdown[hidden] { display: none; }
+.ps-dropdown { position: absolute; z-index: 60; top: calc(100% + 10px); right: 0; display: grid; width: min(330px, calc(100vw - 24px)); max-height: min(560px, calc(100dvh - 100px)); overflow-y: auto; border: 1px solid var(--line); border-radius: 14px; padding: 8px; background: #fff; box-shadow: 0 18px 44px rgba(15, 56, 90, .2); }
+.ps-dropdown-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 10px; border-bottom: 1px solid var(--line); }
+.ps-dropdown-head button { border: 0; background: transparent; color: var(--cyan); font-size: 11px; font-weight: 800; }
+.ps-notification { padding: 10px; border-radius: 10px; }
+.ps-notification + .ps-notification { border-top: 1px solid #edf3f4; }
+.ps-notification.is-unread { background: #eafaff; }
+.ps-notification strong { font-size: 13px; }
+.ps-notification p { margin: 3px 0; color: var(--ink-soft); font-size: 12px; line-height: 1.4; }
+.ps-notification small { color: var(--ink-soft); font-size: 10px; }
+.ps-profile-menu-head { display: flex; align-items: center; gap: 10px; padding: 10px 8px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.ps-profile-menu-head div { display: grid; min-width: 0; }
+.ps-profile-menu-head strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.ps-profile-menu-head small { overflow: hidden; color: var(--ink-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.ps-profile-menu-head em { color: var(--cyan); font-size: 10px; font-style: normal; font-weight: 800; text-transform: uppercase; }
+.ps-profile-menu > button { display: flex; align-items: center; gap: 10px; min-height: 40px; border: 0; border-radius: 8px; padding: 0 10px; background: transparent; color: var(--blue); font-size: 13px; text-align: left; }
+.ps-profile-menu > button span { display: grid; place-items: center; width: 24px; color: var(--cyan); }
+.ps-profile-menu > button:hover { background: #eafaff; }
+.ps-profile-menu > button.is-danger { margin-top: 4px; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; color: var(--pink); }
+@media (max-width: 720px) {
+	.ps-dropdown { position: fixed; top: 76px; right: 12px; left: 12px; width: auto; }
+}
+.ps-pf-id { padding-top: 68px; }
+@media (max-width: 720px) { .ps-pf-id { padding-top: 0; } }

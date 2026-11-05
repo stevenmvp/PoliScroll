@@ -47,6 +47,7 @@ import {
   listGradeRecords,
   listNewsArticles,
   listNotifications,
+  markNotificationRead,
   listStudyGroups,
   listTutoringOffers,
   listTutoringBookings,
@@ -425,6 +426,35 @@ function render(): void {
           <span class="ps-brand-mark" aria-hidden="true">P</span><span>PoliScroll</span>
         </button>`}
         <button class="ps-module-menu-trigger" id="open-module-menu" type="button" aria-expanded="false"><span aria-hidden="true">☰</span> Módulos</button>
+        <div class="ps-topbar-right">
+          <span class="ps-campus"><span class="ps-online-dot"></span> Campus conectado</span>
+          ${authSession.user.role === "admin" || authSession.user.role === "super_admin" ? `<div class="ps-perspective-switcher" aria-label="Perspectiva administrativa"><span>Vista</span><button type="button" class="${adminPreviewRole === "student" ? "is-active" : ""}" data-preview-role="student">Estudiante</button><button type="button" class="${adminPreviewRole === "teacher" ? "is-active" : ""}" data-preview-role="teacher">Docente</button><button type="button" class="${!adminPreviewRole ? "is-active" : ""}" data-preview-role="admin">Admin</button></div>` : ""}
+          <span class="ps-role-badge">${roleLabel(adminPreviewRole ?? authSession.user.role)}</span>
+          <div class="ps-menu-wrap">
+            <button class="ps-bell" id="open-notifications" type="button" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false">🔔<span class="ps-bell-badge" id="notification-badge" hidden>0</span></button>
+            <div class="ps-dropdown ps-notifications" id="notifications-panel" role="dialog" aria-label="Notificaciones" hidden>
+              <div class="ps-dropdown-head"><strong>Notificaciones</strong><button type="button" id="mark-all-read">Marcar todo como leído</button></div>
+              <div class="ps-notification-list" id="notification-list"><p class="ps-empty-state">Cargando…</p></div>
+            </div>
+          </div>
+          <div class="ps-menu-wrap">
+            <button class="ps-user-mark" id="open-profile-menu" type="button" aria-label="Menú de perfil" aria-haspopup="true" aria-expanded="false">${initialsForSession()}</button>
+            <div class="ps-dropdown ps-profile-menu" id="profile-menu" role="menu" hidden>
+              <div class="ps-profile-menu-head"><span class="ps-user-mark">${initialsForSession()}</span><div><strong>${escapeHTML(authSession.user.displayName)}</strong><small>${escapeHTML(authSession.user.email)}</small><em>${roleLabel(adminPreviewRole ?? authSession.user.role)}</em></div></div>
+              <button type="button" role="menuitem" data-menu-module="perfil"><span aria-hidden="true">♙</span>Mi perfil público</button>
+              <button type="button" role="menuitem" data-menu-module="noticias"><span aria-hidden="true">▤</span>Mis publicaciones y noticias</button>
+              <button type="button" role="menuitem" data-menu-module="actividades"><span aria-hidden="true">◷</span>Mi progreso y actividades</button>
+              <button type="button" role="menuitem" data-menu-module="comunidades"><span aria-hidden="true">◌</span>Mis grupos y comunidades</button>
+              <button type="button" role="menuitem" data-menu-module="cursos"><span aria-hidden="true">▦</span>Mis cursos</button>
+              <button type="button" role="menuitem" data-menu-module="tutorias"><span aria-hidden="true">✎</span>Tutorías</button>
+              <button type="button" role="menuitem" data-menu-module="bienestar"><span aria-hidden="true">♡</span>Bienestar y soporte</button>
+              <button type="button" role="menuitem" id="menu-notifications"><span aria-hidden="true">🔔</span>Notificaciones</button>
+              <button type="button" role="menuitem" id="menu-home"><span aria-hidden="true">⌂</span>Menú principal</button>
+              <button type="button" role="menuitem" class="is-danger" id="sign-out"><span aria-hidden="true">⎋</span>Cerrar sesión</button>
+            </div>
+          </div>
+        </div>
+      </header>
         <aside class="ps-module-drawer" id="module-drawer" aria-label="Módulos del campus" aria-hidden="true">
           <div class="ps-module-drawer-heading"><strong>PoliScroll</strong><button id="close-module-menu" type="button" aria-label="Cerrar menú">×</button></div>
           <div class="ps-desktop-menu-panel" role="menu">
@@ -432,13 +462,6 @@ function render(): void {
           </div>
         </aside>
         <div class="ps-module-drawer-backdrop" id="module-drawer-backdrop" hidden></div>
-        <div class="ps-topbar-right">
-          <span class="ps-campus"><span class="ps-online-dot"></span> Campus conectado</span>
-          ${authSession.user.role === "admin" || authSession.user.role === "super_admin" ? `<div class="ps-perspective-switcher" aria-label="Perspectiva administrativa"><span>Vista</span><button type="button" class="${adminPreviewRole === "student" ? "is-active" : ""}" data-preview-role="student">Estudiante</button><button type="button" class="${adminPreviewRole === "teacher" ? "is-active" : ""}" data-preview-role="teacher">Docente</button><button type="button" class="${!adminPreviewRole ? "is-active" : ""}" data-preview-role="admin">Admin</button></div>` : ""}
-          <span class="ps-role-badge">${roleLabel(adminPreviewRole ?? authSession.user.role)}</span>
-          <button class="ps-user-mark" id="sign-out" type="button" aria-label="Cerrar sesión">${initialsForSession()}</button>
-        </div>
-      </header>
       <main class="ps-main">
         ${screen === "home" ? renderHome() : renderModule(selectedModule)}
       </main>
@@ -476,6 +499,7 @@ function render(): void {
   document.querySelector<HTMLButtonElement>("#close-module-menu")?.addEventListener("click", closeModuleDrawer);
   moduleDrawerBackdrop?.addEventListener("click", closeModuleDrawer);
   document.querySelector<HTMLButtonElement>("#back-to-menu")?.addEventListener("click", goHome);
+  wireTopbarMenus(closeModuleDrawer);
   document.querySelector<HTMLButtonElement>("#sign-out")?.addEventListener("click", async () => {
     await logout();
     authSession = null;
@@ -553,6 +577,63 @@ function render(): void {
 function roleLabel(role: UserRole | "admin" | "teacher" | "student"): string {
   return role === "admin" ? "Administrador" : role === "teacher" ? "Docente" : "Estudiante";
 }
+
+function wireTopbarMenus(closeDrawer: () => void): void {
+  const profileButton = document.querySelector<HTMLButtonElement>("#open-profile-menu");
+  const profileMenu = document.querySelector<HTMLElement>("#profile-menu");
+  const bellButton = document.querySelector<HTMLButtonElement>("#open-notifications");
+  const bellPanel = document.querySelector<HTMLElement>("#notifications-panel");
+  const badge = document.querySelector<HTMLElement>("#notification-badge");
+  const list = document.querySelector<HTMLElement>("#notification-list");
+  if (!profileButton || !profileMenu || !bellButton || !bellPanel || !badge || !list) return;
+  let items: Awaited<ReturnType<typeof listNotifications>> = [];
+
+  const closeAll = (): void => {
+    profileMenu.hidden = true;
+    bellPanel.hidden = true;
+    profileButton.setAttribute("aria-expanded", "false");
+    bellButton.setAttribute("aria-expanded", "false");
+  };
+  const toggle = (panel: HTMLElement, trigger: HTMLButtonElement): void => {
+    const willOpen = panel.hidden;
+    closeAll();
+    closeDrawer();
+    panel.hidden = !willOpen;
+    trigger.setAttribute("aria-expanded", String(willOpen));
+  };
+  const paint = (): void => {
+    const unread = items.filter((item) => !item.readAt).length;
+    badge.hidden = unread === 0;
+    badge.textContent = unread > 9 ? "9+" : String(unread);
+    const recent = [...items].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")).slice(0, 8);
+    list.innerHTML = recent.map((item) => `<article class="ps-notification${item.readAt ? "" : " is-unread"}"><strong>${escapeHTML(item.title)}</strong><p>${escapeHTML(item.body)}</p><small>${item.createdAt ? new Date(item.createdAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }) : ""}</small></article>`).join("") || `<p class="ps-empty-state">No tienes notificaciones nuevas.</p>`;
+  };
+  const refresh = (): void => {
+    void listNotifications().then((result) => {
+      const userId = authSession?.user.id;
+      items = result.filter((item) => item.userId === userId);
+      paint();
+    }).catch(() => { list.innerHTML = `<p class="ps-empty-state">No se pudieron cargar las notificaciones.</p>`; });
+  };
+
+  profileButton.addEventListener("click", (event) => { event.stopPropagation(); toggle(profileMenu, profileButton); });
+  bellButton.addEventListener("click", (event) => { event.stopPropagation(); toggle(bellPanel, bellButton); if (!bellPanel.hidden) refresh(); });
+  profileMenu.addEventListener("click", (event) => event.stopPropagation());
+  bellPanel.addEventListener("click", (event) => event.stopPropagation());
+  document.querySelector<HTMLButtonElement>("#menu-notifications")?.addEventListener("click", (event) => { event.stopPropagation(); closeAll(); bellPanel.hidden = false; bellButton.setAttribute("aria-expanded", "true"); refresh(); });
+  document.querySelector<HTMLButtonElement>("#menu-home")?.addEventListener("click", () => { closeAll(); goHome(); });
+  document.querySelectorAll<HTMLButtonElement>("[data-menu-module]").forEach((button) => button.addEventListener("click", () => { closeAll(); openModule(button.dataset.menuModule ?? "perfil"); }));
+  document.querySelector<HTMLButtonElement>("#mark-all-read")?.addEventListener("click", () => {
+    const unread = items.filter((item) => !item.readAt);
+    void Promise.all(unread.map((item) => markNotificationRead(item.id))).then(() => { const now = new Date().toISOString(); items = items.map((item) => ({ ...item, readAt: item.readAt ?? now })); paint(); }).catch(() => undefined);
+  });
+  closeTopbarMenus = closeAll;
+  refresh();
+}
+
+let closeTopbarMenus: (() => void) | null = null;
+document.addEventListener("click", () => closeTopbarMenus?.());
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeTopbarMenus?.(); });
 
 function visibleRole(): UserRole {
   if ((authSession?.user.role === "admin" || authSession?.user.role === "super_admin") && adminPreviewRole) return adminPreviewRole;
