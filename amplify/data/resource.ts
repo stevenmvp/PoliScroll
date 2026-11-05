@@ -4,6 +4,7 @@ import { tutor } from "../functions/tutor/resource.js";
 const schema = a.schema({
   UserProfile: a
     .model({
+      userId: a.string(),
       displayName: a.string().required(),
       email: a.string().required(),
       avatarUrl: a.string(),
@@ -304,7 +305,7 @@ const schema = a.schema({
       feedback: a.string(),
       recordedAt: a.datetime().required(),
     })
-    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+    .authorization((allow) => [allow.owner(), allow.ownerDefinedIn("studentId").to(["read"]), allow.groups(["admin", "teacher"])]),
 
   Achievement: a
     .model({
@@ -337,7 +338,7 @@ const schema = a.schema({
       createdAt: a.datetime().required(),
       ipHash: a.string(),
     })
-    .authorization((allow) => [allow.groups(["admin"])]),
+    .authorization((allow) => [allow.groups(["admin"]), allow.groups(["teacher"]).to(["create"])]),
 
   SupportTicket: a
     .model({

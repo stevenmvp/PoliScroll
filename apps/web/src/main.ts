@@ -49,6 +49,8 @@ import {
   listNewsArticles,
   listNotifications,
   createSupportTicket,
+  loadChatHistory,
+  recordTutorExchange,
   markNotificationRead,
   listStudyGroups,
   listTutoringOffers,
@@ -407,6 +409,8 @@ let authFeedbackKind: "error" | "success" = "error";
 let authBusy = false;
 let dashboardSummary: DashboardSummary | null = null;
 let chatConversationId: string | null = null;
+let chatTranscript: Array<{ text: string; className: string }> = [];
+let chatHistoryLoaded = false;
 let roleWorkspaceCollapsed = true;
 let routeInitialized = false;
 
@@ -510,6 +514,9 @@ ${profileMenuItems()}
   document.querySelector<HTMLButtonElement>("#sign-out")?.addEventListener("click", async () => {
     await logout();
     authSession = null;
+    chatConversationId = null;
+    chatTranscript = [];
+    chatHistoryLoaded = false;
     screen = "home";
     history.replaceState({ screen: "auth" }, "", "#login");
     render();
@@ -539,8 +546,25 @@ ${profileMenuItems()}
   });
 
   const chatDialog = document.querySelector<HTMLDialogElement>("#polichat-dialog");
+  const paintChat = (): void => {
+    const container = document.querySelector<HTMLDivElement>("#polichat-messages");
+    if (!container || !chatTranscript.length) return;
+    container.replaceChildren();
+    chatTranscript.forEach((entry) => appendChatMessage(container, entry.text, entry.className));
+    container.scrollTop = container.scrollHeight;
+  };
   document.querySelector<HTMLButtonElement>("#open-polichat")?.addEventListener("click", () => {
     chatDialog?.showModal();
+    paintChat();
+    if (!chatHistoryLoaded && authSession) {
+      chatHistoryLoaded = true;
+      void loadChatHistory(authSession.user.id).then((history) => {
+        if (!history) return;
+        chatConversationId = history.conversationId;
+        chatTranscript = history.messages.map((message) => ({ text: message.body, className: message.fromUser ? "is-user" : "is-bot" }));
+        paintChat();
+      }).catch(() => { chatHistoryLoaded = false; });
+    }
     if (chatConversationId && authSession) void markChatRead(chatConversationId, authSession.user.id).catch(() => undefined);
   });
   document.querySelector<HTMLButtonElement>("#close-polichat")?.addEventListener("click", () => chatDialog?.close());
@@ -553,6 +577,7 @@ ${profileMenuItems()}
 
     input.value = "";
     appendChatMessage(messages, text, "is-user");
+    chatTranscript.push({ text, className: "is-user" });
     const send = async (): Promise<void> => {
       try {
         if (!chatConversationId) {
@@ -566,10 +591,11 @@ ${profileMenuItems()}
           senderId: authSession!.user.id,
           body: text,
         });
-        appendChatMessage(messages, "Mensaje guardado en tu conversación del campus.", "is-bot");
         const answer = await askTutor(text, "El estudiante está usando PoliChat dentro de una plataforma educativa universitaria.");
         appendChatMessage(messages, answer, "is-bot");
+        chatTranscript.push({ text: answer, className: "is-bot" });
         messages.scrollTop = messages.scrollHeight;
+        await recordTutorExchange({ conversationId: chatConversationId, userId: authSession!.user.id, prompt: text, response: answer });
       } catch (error) {
         appendChatMessage(messages, error instanceof Error ? error.message : "No se pudo guardar el mensaje.", "is-bot");
       }

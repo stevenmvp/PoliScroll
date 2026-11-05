@@ -1,5 +1,6 @@
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "../../../../amplify/data/resource";
+import { getCurrentUser } from "aws-amplify/auth";
 import type { AuthSession, UserRole } from "../domain/identity";
 
 const client = generateClient<Schema>();
@@ -85,14 +86,49 @@ export async function listUserProfiles(): Promise<Schema["UserProfile"]["type"][
   return result.data;
 }
 
+export const TUTOR_SENDER_ID = "poliscroll-tutor";
+
+export async function recordAudit(action: string, entityType: string, entityId?: string, before?: unknown, after?: unknown): Promise<void> {
+  try {
+    const actor = await getCurrentUser();
+    const result = await client.models.AuditLog.create({
+      actorId: actor.userId,
+      action,
+      entityType,
+      entityId,
+      before: before === undefined ? undefined : JSON.stringify(before),
+      after: after === undefined ? undefined : JSON.stringify(after),
+      createdAt: new Date().toISOString(),
+    });
+    if (result.errors?.length) console.warn("No se pudo registrar la auditoría.", action);
+  } catch (error) {
+    console.warn("No se pudo registrar la auditoría.", action, error);
+  }
+}
+
+async function recordContentVersion(entityType: string, entityId: string, snapshot: unknown, summary: string): Promise<void> {
+  try {
+    const actor = await getCurrentUser();
+    const existing = await client.models.ContentVersion.list({ filter: { entityId: { eq: entityId } }, limit: 1000 });
+    const version = existing.data.reduce((max, item) => Math.max(max, item.version), 0) + 1;
+    await client.models.ContentVersion.create({ entityType, entityId, version, snapshot: JSON.stringify(snapshot), changedBy: actor.userId, changeSummary: summary, createdAt: new Date().toISOString() });
+  } catch (error) {
+    console.warn("No se pudo guardar la versión del contenido.", entityType, error);
+  }
+}
+
 export async function updateUserProfileStatus(id: string, status: "active" | "suspended" | "pending"): Promise<void> {
+  const before = await client.models.UserProfile.get({ id });
   const result = await client.models.UserProfile.update({ id, status });
   if (result.errors?.length) throw new Error("No se pudo actualizar el estado del usuario.");
+  await recordAudit("user.status_changed", "UserProfile", id, { status: before.data?.status, email: before.data?.email }, { status });
 }
 
 export async function deleteUserProfile(id: string): Promise<void> {
+  const before = await client.models.UserProfile.get({ id });
   const result = await client.models.UserProfile.delete({ id });
   if (result.errors?.length) throw new Error("No se pudo eliminar el registro del usuario.");
+  await recordAudit("user.deleted", "UserProfile", id, { email: before.data?.email, role: before.data?.role, status: before.data?.status });
 }
 
 export async function listPublicProfiles(): Promise<Schema["PublicProfile"]["type"][]> {
@@ -216,6 +252,7 @@ export async function updateSupportTicket(input: {
     updatedAt: new Date().toISOString(),
   });
   if (result.errors?.length) throw new Error("No se pudo actualizar el ticket.");
+  await recordAudit("support_ticket.updated", "SupportTicket", input.id, { status: ticket.data?.status, assignedTo: ticket.data?.assignedTo }, { status: input.status, assignedTo: input.assignedTo, responded: Boolean(input.response) });
   const requesterId = ticket.data?.requesterId;
   if (requesterId && (input.response || ticket.data?.status !== input.status)) {
     try {
@@ -250,6 +287,7 @@ export async function listTeacherApplications(): Promise<Schema["TeacherApplicat
 }
 
 export async function updateTeacherApplicationStatus(id: string, status: "pending" | "approved" | "rejected", reviewerId: string): Promise<void> {
+  const before = await client.models.TeacherApplication.get({ id });
   const result = await client.models.TeacherApplication.update({
     id,
     status,
@@ -257,6 +295,14 @@ export async function updateTeacherApplicationStatus(id: string, status: "pendin
     updatedAt: new Date().toISOString(),
   });
   if (result.errors?.length) throw new Error("No se pudo actualizar la solicitud docente.");
+  await recordAudit("teacher_application.reviewed", "TeacherApplication", id, { status: before.data?.status }, { status, reviewerId });
+  if (before.data?.applicantId && status !== "pending") {
+    try {
+      await notifyUsers([before.data.applicantId], { title: status === "approved" ? "Solicitud docente aprobada" : "Solicitud docente rechazada", body: status === "approved" ? "Un administrador aprobó tu solicitud. Vuelve a iniciar sesión para ver los cambios." : "Un administrador revisó tu solicitud y no fue aprobada.", type: "system" });
+    } catch {
+      // La revisión ya quedó registrada.
+    }
+  }
 }
 
 export async function listActivitySessions(): Promise<Schema["ActivitySession"]["type"][]> {
@@ -295,10 +341,12 @@ export async function upsertArcadeGameConfig(input: {
     updatedBy: input.updatedBy,
     updatedAt: new Date().toISOString(),
   };
+  const before = input.id ? await client.models.ArcadeGameConfig.get({ id: input.id }) : undefined;
   const result = input.id
     ? await client.models.ArcadeGameConfig.update({ id: input.id, ...payload })
     : await client.models.ArcadeGameConfig.create(payload);
   if (result.errors?.length) throw new Error("No se pudo guardar la configuración del juego.");
+  await recordAudit(input.id ? "arcade_config.updated" : "arcade_config.created", "ArcadeGameConfig", result.data?.id ?? input.id, before?.data ? { enabled: before.data.enabled, difficulty: before.data.difficulty, speedMultiplier: before.data.speedMultiplier, frenzyEnabled: before.data.frenzyEnabled } : undefined, { gameId: payload.gameId, enabled: payload.enabled, difficulty: payload.difficulty, speedMultiplier: payload.speedMultiplier, frenzyEnabled: payload.frenzyEnabled });
 }
 
 export async function listGradeRecords(): Promise<Schema["GradeRecord"]["type"][]> {
@@ -320,6 +368,7 @@ export async function createGradeRecord(input: {
     recordedAt: new Date().toISOString(),
   });
   if (result.errors?.length) throw new Error("No se pudo registrar la calificación.");
+  await recordAudit("grade.recorded", "GradeRecord", result.data?.id, undefined, { studentId: input.studentId, activityId: input.activityId, score: input.score, maxScore: input.maxScore });
   const notification = await client.models.Notification.create({
     userId: input.studentId,
     title: "Nueva calificación disponible",
@@ -365,11 +414,14 @@ export async function createStudyGroup(input: {
     status: "active",
   });
   if (result.errors?.length) throw new Error("No se pudo crear el grupo.");
+  await recordAudit("study_group.created", "StudyGroup", result.data?.id, undefined, { name: input.name, code: input.code, teacherId: input.teacherId });
 }
 
 export async function updateStudyGroupStatus(id: string, status: "active" | "archived" | "pending"): Promise<void> {
+  const before = await client.models.StudyGroup.get({ id });
   const result = await client.models.StudyGroup.update({ id, status });
   if (result.errors?.length) throw new Error("No se pudo actualizar el estado del grupo.");
+  await recordAudit("study_group.status_changed", "StudyGroup", id, { status: before.data?.status }, { status });
 }
 
 export async function listNewsArticles(): Promise<Schema["NewsArticle"]["type"][]> {
@@ -414,12 +466,19 @@ export async function createNewsArticle(input: {
     version: 1,
   });
   if (result.errors?.length) throw new Error("No se pudo publicar la noticia.");
+  if (result.data?.id) {
+    await recordContentVersion("NewsArticle", result.data.id, { title: input.title, summary: input.summary, body: input.body, coverImageUrl: input.coverImageUrl, mediaLinks: input.mediaLinks }, "Publicación inicial");
+    await recordAudit("news.published", "NewsArticle", result.data.id, undefined, { title: input.title, authorId: input.authorId });
+  }
   if (options.notify) await notifyCommunity({ title: "Nueva noticia", body: input.title, type: "system", actionUrl: "#module/noticias" }, input.authorId);
 }
 
 export async function archiveNewsArticle(id: string): Promise<void> {
+  const before = await client.models.NewsArticle.get({ id });
   const result = await client.models.NewsArticle.update({ id, status: "archived" });
   if (result.errors?.length) throw new Error("No se pudo retirar la noticia.");
+  await recordAudit("news.archived", "NewsArticle", id, { status: before.data?.status, title: before.data?.title }, { status: "archived" });
+  if (before.data) await recordContentVersion("NewsArticle", id, { title: before.data.title, summary: before.data.summary, body: before.data.body, status: "archived" }, "Noticia retirada");
 }
 
 export async function listCampusEvents(): Promise<Schema["CampusEvent"]["type"][]> {
@@ -442,6 +501,7 @@ export async function createCampusEvent(input: {
     status: "published",
   });
   if (result.errors?.length) throw new Error("No se pudo crear el evento.");
+  await recordAudit("campus_event.created", "CampusEvent", result.data?.id, undefined, { title: input.title, startsAt: input.startsAt, organizerId: input.organizerId });
   await notifyCommunity({ title: "Nuevo evento en el campus", body: `${input.title} · ${new Date(input.startsAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}`, type: "event", actionUrl: "#module/actividades" }, input.organizerId);
 }
 
@@ -466,6 +526,7 @@ export async function createCourse(input: {
 }): Promise<void> {
   const result = await client.models.Course.create({ ...input, status: "published" });
   if (result.errors?.length) throw new Error("No se pudo publicar el curso.");
+  await recordAudit("course.published", "Course", result.data?.id, undefined, { title: input.title, instructorId: input.instructorId });
 }
 
 export async function enrollInCourse(courseId: string, userId: string): Promise<void> {
@@ -525,8 +586,10 @@ export async function updateTutoringBookingStatus(
   id: string,
   status: "requested" | "confirmed" | "cancelled" | "completed",
 ): Promise<void> {
+  const before = await client.models.TutoringBooking.get({ id });
   const result = await client.models.TutoringBooking.update({ id, status });
   if (result.errors?.length) throw new Error("No se pudo actualizar el estado de la tutoría.");
+  await recordAudit("tutoring_booking.status_changed", "TutoringBooking", id, { status: before.data?.status }, { status });
 }
 
 export async function findStudyGroupByCode(code: string): Promise<Schema["StudyGroup"]["type"] | null> {
@@ -606,4 +669,36 @@ export async function markChatRead(conversationId: string, userId: string): Prom
     lastReadAt: new Date().toISOString(),
   });
   if (updated.errors?.length) throw new Error("No se pudo marcar el chat como leído.");
+}
+
+export interface ChatHistory {
+  conversationId: string;
+  messages: Array<{ body: string; fromUser: boolean }>;
+}
+
+export async function loadChatHistory(userId: string): Promise<ChatHistory | null> {
+  const conversations = await client.models.ChatConversation.list({ filter: { createdBy: { eq: userId }, kind: { eq: "support" } }, limit: 1000 });
+  if (conversations.errors?.length) throw new Error("No se pudo cargar tu conversación.");
+  const latest = conversations.data.filter((item) => item.archived !== true).sort((a, b) => (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""))[0];
+  if (!latest) return null;
+  const messages = await client.models.ChatMessage.list({ filter: { conversationId: { eq: latest.id } }, limit: 1000 });
+  if (messages.errors?.length) throw new Error("No se pudo cargar el historial del chat.");
+  return {
+    conversationId: latest.id,
+    messages: messages.data.filter((item) => !item.deletedAt).sort((a, b) => a.sentAt.localeCompare(b.sentAt)).map((item) => ({ body: item.body, fromUser: item.senderId !== TUTOR_SENDER_ID })),
+  };
+}
+
+export async function recordTutorExchange(input: { conversationId: string; userId: string; prompt: string; response: string }): Promise<void> {
+  const sessions = await client.models.AISession.list({ filter: { userId: { eq: input.userId }, context: { eq: input.conversationId } }, limit: 1 });
+  if (sessions.errors?.length) throw new Error("No se pudo consultar la sesión del tutor.");
+  let sessionId = sessions.data[0]?.id;
+  if (!sessionId) {
+    const created = await client.models.AISession.create({ userId: input.userId, context: input.conversationId, topic: "PoliChat", startedAt: new Date().toISOString(), model: "gemini-2.0-flash", status: "active" });
+    if (created.errors?.length || !created.data?.id) throw new Error("No se pudo registrar la sesión del tutor.");
+    sessionId = created.data.id;
+  }
+  await sendChatMessage({ conversationId: input.conversationId, senderId: TUTOR_SENDER_ID, body: input.response });
+  const feedback = await client.models.AIFeedback.create({ sessionId, userId: input.userId, prompt: input.prompt, response: input.response, createdAt: new Date().toISOString() });
+  if (feedback.errors?.length) throw new Error("No se pudo registrar la respuesta del tutor.");
 }

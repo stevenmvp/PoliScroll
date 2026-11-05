@@ -20,6 +20,9 @@ export async function ensureUserProfile(session: AuthSession): Promise<void> {
   if (publicProfiles.errors?.length) {
     throw new Error("No se pudo consultar la proyección pública del perfil.");
   }
+  if (profiles.data[0] && !profiles.data[0].userId) {
+    await client.models.UserProfile.update({ id: profiles.data[0].id, userId: session.user.id });
+  }
   if (profiles.data[0] && publicProfiles.data[0]) return;
   if (profiles.data[0] && !publicProfiles.data[0]) {
     const publicProfile = await client.models.PublicProfile.create({
@@ -33,6 +36,7 @@ export async function ensureUserProfile(session: AuthSession): Promise<void> {
   }
 
   const result = await client.models.UserProfile.create({
+    userId: session.user.id,
     displayName: session.user.displayName,
     email: session.user.email,
     role: session.user.role === "super_admin" ? "super_admin" : session.user.role,
