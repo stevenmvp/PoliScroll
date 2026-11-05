@@ -81,7 +81,7 @@ export const AcademicFeedbackDrawer: React.FC<AcademicFeedbackDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  // Handle generating custom topic via Gemini backend
+  // Handle generating custom topic via Bedrock backend
   const handleGenerateCustomTopic = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customPrompt.trim()) return;
@@ -138,7 +138,7 @@ export const AcademicFeedbackDrawer: React.FC<AcademicFeedbackDrawerProps> = ({
     }
   };
 
-  // Handle expanding explanation with Gemini
+  // Handle expanding explanation with Bedrock
   const handleExpandExplanation = async (log: AcademicLogEntry) => {
     if (log.detailedExplanation) {
       setExpandedExplanationLogs((prev) => ({ ...prev, [log.id]: !prev[log.id] }));

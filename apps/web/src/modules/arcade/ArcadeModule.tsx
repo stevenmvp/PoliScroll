@@ -140,7 +140,7 @@ export default function App({ onGameResult }: ArcadeModuleProps) {
             <span aria-hidden="true">·</span>
             <span>Entorno Académico Interactivo 2D &amp; 3D</span>
             <span aria-hidden="true">·</span>
-            <span>Tutor Socrático con Gemini API</span>
+            <span>Tutor Socrático con Amazon Bedrock</span>
           </div>
           <div className="text-slate-500 font-mono text-[11px]">
             Raciocinio Temático en Tiempo Real · Responsive Mobile &amp; Desktop

@@ -1030,3 +1030,21 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px color-mix(in s
   .ps-module-view, .ps-module-view > *, .ps-skeleton, .ps-skeleton-card, .ps-data-card, .ps-data-card::before, .ps-management-card, .ps-management-panel, .ps-feed-cover-orb, .ps-empty-state, .ps-empty-state > span, .ps-dropdown, .ps-route-progress::after { animation: none !important; }
   .ps-feed-card, .ps-data-card, .ps-management-card, .ps-module-card { transition: none; }
 }
+
+/* Portadas de tarjetas de datos */
+.ps-card-cover { position: relative; display: grid; place-items: center; height: 120px; margin: -18px -18px 6px; overflow: hidden; background: linear-gradient(135deg, var(--cover), color-mix(in srgb, var(--cover) 45%, #0f385a)); }
+.ps-card-cover::before { content: ""; position: absolute; right: -30px; top: -40px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255, 255, 255, .2); animation: ps-drift 8s ease-in-out infinite; }
+.ps-card-cover::after { content: ""; position: absolute; left: -20px; bottom: -50px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255, 255, 255, .12); animation: ps-drift 10s ease-in-out infinite reverse; }
+.ps-card-cover-icon { position: relative; z-index: 1; color: #fff; font-size: 44px; font-weight: 900; text-shadow: 0 6px 18px rgba(0, 0, 0, .25); transition: transform .4s var(--ease-spring); }
+.ps-card-cover img { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--ease-out); }
+.ps-card-cover-badge { position: absolute; z-index: 3; right: 12px; bottom: 10px; border-radius: 999px; padding: 4px 11px; background: rgba(15, 56, 90, .72); color: #fff; font-size: 11px; font-weight: 800; backdrop-filter: blur(6px); }
+.ps-has-cover:hover .ps-card-cover-icon { transform: scale(1.18) rotate(-6deg); }
+.ps-has-cover:hover .ps-card-cover img { transform: scale(1.06); }
+.ps-data-card.ps-has-cover::before { display: none; }
+.ps-management-card.ps-has-cover { flex-wrap: wrap; overflow: hidden; }
+.ps-management-card.ps-has-cover > .ps-card-cover { flex: 0 0 100%; margin: -16px -16px 4px; }
+.ps-management-card.ps-has-cover > div { flex: 1 1 0; min-width: 0; }
+.ps-profile-post.ps-has-cover { overflow: hidden; }
+.ps-profile-post.ps-has-cover > .ps-card-cover { margin: -14px -14px 12px; }
+@media (max-width: 700px) { .ps-card-cover { height: 96px; } }
+@media (prefers-reduced-motion: reduce) { .ps-card-cover::before, .ps-card-cover::after { animation: none; } }

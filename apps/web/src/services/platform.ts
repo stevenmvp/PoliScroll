@@ -716,7 +716,7 @@ export async function recordTutorExchange(input: { conversationId: string; userI
   if (sessions.errors?.length) throw new Error("No se pudo consultar la sesión del tutor.");
   let sessionId = sessions.data[0]?.id;
   if (!sessionId) {
-    const created = await client.models.AISession.create({ userId: input.userId, context: input.conversationId, topic: "PoliChat", startedAt: new Date().toISOString(), model: "gemini-2.0-flash", status: "active" });
+    const created = await client.models.AISession.create({ userId: input.userId, context: input.conversationId, topic: "PoliChat", startedAt: new Date().toISOString(), model: "amazon.nova-lite-v1:0", status: "active" });
     if (created.errors?.length || !created.data?.id) throw new Error("No se pudo registrar la sesión del tutor.");
     sessionId = created.data.id;
   }
