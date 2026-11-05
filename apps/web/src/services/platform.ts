@@ -438,19 +438,35 @@ export async function listNewsArticles(): Promise<Schema["NewsArticle"]["type"][
 
 type NotificationKind = "system" | "activity" | "message" | "event";
 
-export async function notifyUsers(userIds: string[], input: { title: string; body: string; type: NotificationKind; actionUrl?: string }): Promise<void> {
+export async function notifyUsers(userIds: string[], input: { title: string; body: string; type: NotificationKind; actionUrl?: string }): Promise<number> {
   const createdAt = new Date().toISOString();
   const unique = [...new Set(userIds)];
+  let sent = 0;
   for (let index = 0; index < unique.length; index += 20) {
-    await Promise.all(unique.slice(index, index + 20).map((userId) => client.models.Notification.create({ userId, createdAt, ...input })));
+    const results = await Promise.allSettled(unique.slice(index, index + 20).map((userId) => client.models.Notification.create({ userId, createdAt, ...input })));
+    sent += results.filter((result) => result.status === "fulfilled" && !result.value.errors?.length).length;
   }
+  return sent;
+}
+
+// Recorre todas las páginas de perfiles públicos para no limitar el alcance de los avisos.
+async function listAllPublicProfileIds(): Promise<string[]> {
+  const ids: string[] = [];
+  let nextToken: string | null | undefined;
+  do {
+    const page = await client.models.PublicProfile.list({ limit: 1000, nextToken });
+    if (page.errors?.length) throw new Error("No se pudieron listar los destinatarios.");
+    ids.push(...page.data.map((profile) => profile.userId));
+    nextToken = page.nextToken;
+  } while (nextToken);
+  return ids;
 }
 
 async function notifyCommunity(input: { title: string; body: string; type: NotificationKind; actionUrl?: string }, excludeUserId: string): Promise<void> {
   try {
-    const profiles = await client.models.PublicProfile.list({ limit: 1000 });
-    const recipients = profiles.data.map((profile) => profile.userId).filter((userId) => userId !== excludeUserId);
-    await notifyUsers(recipients, input);
+    const recipients = (await listAllPublicProfileIds()).filter((userId) => userId !== excludeUserId);
+    const sent = await notifyUsers(recipients, input);
+    await recordAudit("notification.broadcast", "Notification", undefined, undefined, { title: input.title, recipients: recipients.length, sent });
   } catch {
     // La publicación ya se guardó; un fallo al avisar no debe revertirla.
   }
