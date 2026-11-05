@@ -56,11 +56,9 @@ import {
   getOwnPublicProfile,
   listProfileLinks,
   listProfileHighlights,
-  listProfilePosts,
   updatePublicProfile,
   createProfileLink,
   createProfileHighlight,
-  createProfilePost,
   updateUserProfileStatus,
   deleteUserProfile,
   archiveNewsArticle,
@@ -1080,14 +1078,14 @@ function wirePublicProfileModule(): void {
   let profileRecordId = authSession.user.id;
 
   const renderProfileData = async (): Promise<void> => {
-    const [publicProfiles, ownPublic, ownLinks, ownHighlights, ownPosts, publicPosts] = await Promise.all([
+    const [publicProfiles, ownPublic, ownLinks, ownHighlights, allNews] = await Promise.all([
       listPublicProfiles(),
       getOwnPublicProfile(authSession!.user.id),
       listProfileLinks(authSession!.user.id),
       listProfileHighlights(authSession!.user.id),
-      listProfilePosts(authSession!.user.id),
-      listProfilePosts(),
+      listNewsArticles(),
     ]);
+    const ownPosts = allNews.filter((article) => article.authorId === authSession!.user.id && article.status !== "archived");
     if (ownPublic) {
       profileRecordId = ownPublic.id;
       (form.elements.namedItem("avatarUrl") as HTMLInputElement).value = ownPublic.avatarUrl ?? "";
@@ -1098,12 +1096,46 @@ function wirePublicProfileModule(): void {
       (form.elements.namedItem("currentStudyPlace") as HTMLInputElement).value = ownPublic.currentStudyPlace ?? "";
       (form.elements.namedItem("isPublic") as HTMLInputElement).checked = ownPublic.isPublic !== false;
       visibility.textContent = ownPublic.isPublic === false ? "Privado" : "Público";
+      paintProfileHero(ownPublic.avatarUrl, ownPublic.bannerUrl, ownPublic.headline, ownPublic.location, ownPublic.publicBio, ownPublic.currentStudyPlace);
     }
-    directory.innerHTML = publicProfiles.filter((profile) => profile.id !== ownPublic?.id && (profile.role === "student" || profile.role === "teacher")).map((profile) => `<article class="ps-profile-directory-card"><div class="ps-profile-avatar">${escapeHTML((profile.displayName[0] ?? "P").toUpperCase())}</div><div><span class="ps-feed-tag">${profile.role === "teacher" ? "Docente" : "Estudiante"}</span><h2>${escapeHTML(profile.displayName)}</h2><p>${escapeHTML(profile.headline ?? profile.currentStudyPlace ?? "Perfil académico")}</p>${profile.location ? `<small>⌖ ${escapeHTML(profile.location)}</small>` : ""}</div></article>`).join("") || `<p class="ps-empty-state">Todavía no hay otros perfiles públicos.</p>`;
+    setText("#stat-links", String(ownLinks.length));
+    setText("#stat-highlights", String(ownHighlights.length));
+    setText("#stat-posts", String(ownPosts.length));
+    directory.innerHTML = publicProfiles.filter((profile) => profile.id !== ownPublic?.id && (profile.role === "student" || profile.role === "teacher")).map((profile) => `<article class="ps-profile-directory-card"><div class="ps-profile-avatar"${safeImageUrl(profile.avatarUrl) ? ` style="background-image:url('${safeImageUrl(profile.avatarUrl)}')"` : ""}>${safeImageUrl(profile.avatarUrl) ? "" : escapeHTML((profile.displayName[0] ?? "P").toUpperCase())}</div><div><span class="ps-feed-tag">${profile.role === "teacher" ? "Docente" : "Estudiante"}</span><h2>${escapeHTML(profile.displayName)}</h2><p>${escapeHTML(profile.headline ?? profile.currentStudyPlace ?? "Perfil académico")}</p>${profile.location ? `<small>⌖ ${escapeHTML(profile.location)}</small>` : ""}</div></article>`).join("") || `<p class="ps-empty-state">Todavía no hay otros perfiles públicos.</p>`;
     links.innerHTML = ownLinks.map((link) => `<a class="ps-profile-link" href="${escapeHTML(link.url)}" target="_blank" rel="noreferrer"><span>${escapeHTML(link.icon)}</span><strong>${escapeHTML(link.label)}</strong><small>${escapeHTML(link.category ?? "Perfil")}</small></a>`).join("") || `<p class="ps-empty-state">Agrega tu primera red o portafolio.</p>`;
     highlights.innerHTML = ownHighlights.map((item) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(item.icon ?? "✦")} · ${escapeHTML(item.kind ?? "trayectoria")}</span><h2>${escapeHTML(item.title ?? "Sin título")}</h2><p>${escapeHTML(item.description ?? item.organization ?? "")}</p></div></article>`).join("") || `<p class="ps-empty-state">Añade logros, estudios o experiencias.</p>`;
-    posts.innerHTML = publicPosts.sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "")).map((post) => `<article class="ps-profile-post"><span class="ps-feed-tag">Publicación académica</span><h2>${escapeHTML(post.title)}</h2><p>${escapeHTML(post.body)}</p>${post.mediaUrl ? `<a href="${escapeHTML(post.mediaUrl)}" target="_blank" rel="noreferrer">Abrir ${escapeHTML(post.mediaType ?? "recurso")} ↗</a>` : ""}</article>`).join("") || `<p class="ps-empty-state">Aún no hay publicaciones públicas.</p>`;
+    posts.innerHTML = ownPosts.sort((x, y) => (y.publishedAt ?? "").localeCompare(x.publishedAt ?? "")).map((post) => `<article class="ps-profile-post">${safeImageUrl(post.coverImageUrl) ? `<img class="ps-news-cover" src="${safeImageUrl(post.coverImageUrl)}" alt="" loading="lazy" />` : ""}<span class="ps-feed-tag">En Noticias</span><h2>${escapeHTML(post.title)}</h2><p>${escapeHTML(post.summary ?? post.body)}</p>${post.mediaLinks?.[0] ? `<a href="${escapeHTML(post.mediaLinks[0])}" target="_blank" rel="noreferrer">Abrir recurso ↗</a>` : ""}</article>`).join("") || `<p class="ps-empty-state">Aún no has publicado nada en Noticias.</p>`;
   };
+
+  const setText = (selector: string, text: string): void => { const node = document.querySelector<HTMLElement>(selector); if (node) node.textContent = text; };
+  const paintProfileHero = (avatar?: string | null, banner?: string | null, headline?: string | null, location?: string | null, bio?: string | null, study?: string | null): void => {
+    const avatarBox = document.querySelector<HTMLElement>("#pf-avatar");
+    const bannerBox = document.querySelector<HTMLElement>("#pf-banner");
+    const avatarUrl = safeImageUrl(avatar);
+    const bannerUrl = safeImageUrl(banner);
+    if (avatarBox) { avatarBox.style.backgroundImage = avatarUrl ? `url('${avatarUrl}')` : ""; avatarBox.classList.toggle("has-image", Boolean(avatarUrl)); }
+    if (bannerBox) { bannerBox.style.backgroundImage = bannerUrl ? `url('${bannerUrl}')` : ""; bannerBox.classList.toggle("has-image", Boolean(bannerUrl)); }
+    setText("#pf-headline", headline || "Cuéntale a la comunidad quién eres.");
+    setText("#pf-location", location ? `⌖ ${location}` : "");
+    setText("#pf-bio", bio || "Aún no has escrito tu biografía pública.");
+    setText("#pf-study", study ? `Estudio actual: ${study}` : "");
+  };
+  document.querySelector<HTMLButtonElement>("#pf-edit")?.addEventListener("click", () => { form.hidden = !form.hidden; if (!form.hidden) form.scrollIntoView({ behavior: "smooth", block: "start" }); });
+  const wireImagePicker = (inputSelector: string, field: "avatarUrl" | "bannerUrl", maxSide: number): void => {
+    document.querySelector<HTMLInputElement>(inputSelector)?.addEventListener("change", (event) => {
+      const input = event.currentTarget as HTMLInputElement;
+      const file = input.files?.[0];
+      input.value = "";
+      if (!file) return;
+      feedback.textContent = "Procesando imagen…";
+      void imageFileToDataUrl(file, maxSide).then((dataUrl) => {
+        (form.elements.namedItem(field) as HTMLInputElement).value = dataUrl;
+        form.requestSubmit();
+      }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo cargar la imagen."; });
+    });
+  };
+  wireImagePicker("#avatar-file", "avatarUrl", 384);
+  wireImagePicker("#banner-file", "bannerUrl", 1280);
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1133,7 +1165,10 @@ function wirePublicProfileModule(): void {
   document.querySelector<HTMLFormElement>("#profile-post-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const values = new FormData(event.currentTarget as HTMLFormElement);
-    void createProfilePost({ authorId: authSession!.user.id, title: String(values.get("title") ?? "").trim(), body: String(values.get("body") ?? "").trim(), mediaUrl: String(values.get("mediaUrl") ?? "").trim() || undefined, mediaType: String(values.get("mediaType")) as "image" | "video" | "document" | "link" }).then(renderProfileData).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar."; });
+    const body = String(values.get("body") ?? "").trim();
+    const mediaUrl = String(values.get("mediaUrl") ?? "").trim();
+    const isImage = values.get("mediaType") === "image";
+    void createNewsArticle({ authorId: authSession!.user.id, title: String(values.get("title") ?? "").trim(), summary: body.slice(0, 180), body, coverImageUrl: isImage && mediaUrl ? mediaUrl : undefined, mediaLinks: !isImage && mediaUrl ? [mediaUrl] : [] }).then(() => { (event.target as HTMLFormElement).reset(); feedback.textContent = "Publicado en Noticias."; return renderProfileData(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar."; });
   });
   void renderProfileData().catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo cargar el perfil."; });
 }
@@ -1317,20 +1352,52 @@ function renderStudentProgressModule(): string {
   return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Tu recorrido / Progreso</p><h1 id="module-title">Mi progreso.</h1><p class="ps-module-description">Revisa tus actividades y notificaciones.</p></div></div><div class="ps-admin-panels"><section class="ps-management-panel"><strong>Actividades realizadas</strong><div class="ps-management-list" id="student-progress-list"><p class="ps-empty-state">Cargando progreso…</p></div></section><section class="ps-management-panel"><strong>Notificaciones</strong><div class="ps-management-list" id="student-notifications-list"><p class="ps-empty-state">Cargando notificaciones…</p></div></section></div></section>`;
 }
 
+function safeImageUrl(value?: string | null): string {
+  if (!value) return "";
+  return /^(data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+|https:\/\/[^\s'"()<>]+)$/.test(value) ? value : "";
+}
+
+async function imageFileToDataUrl(file: File, maxSide: number): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Selecciona un archivo de imagen.");
+  if (file.size > 15 * 1024 * 1024) throw new Error("La imagen supera 15 MB.");
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  for (const quality of [0.85, 0.7, 0.55, 0.4]) {
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    if (dataUrl.length <= 200_000) return dataUrl;
+  }
+  throw new Error("La imagen es demasiado pesada; prueba con otra.");
+}
+
 function renderPublicProfileModule(role: "student" | "teacher"): string {
   const roleName = role === "teacher" ? "docente" : "estudiante";
   return `<section class="ps-module-view ps-management-view ps-profile-view" aria-labelledby="module-title">
-    <div class="ps-module-heading"><div><p class="ps-eyebrow">Comunidad / Perfil público</p><h1 id="module-title">Tu identidad académica.</h1><p class="ps-module-description">Decide qué información pueden descubrir otros estudiantes y docentes. Puedes compartir redes, logros, lugares de estudio y publicaciones.</p></div><div class="ps-module-total"><span>Visibilidad</span><strong id="profile-visibility">—</strong></div></div>
-    <form class="ps-management-form" id="public-profile-form">
-      <div class="ps-management-form-heading"><strong>Presentación pública</strong><span>Visible para la comunidad si la activas</span></div>
-      <div class="ps-management-grid"><label>Nombre visible<input name="displayName" value="${escapeHTML(authSession?.user.displayName ?? "")}" disabled /></label><label>Titular<input name="headline" maxlength="120" placeholder="${role === "teacher" ? "Docente de biología · Tutor" : "Estudiante de ingeniería"}" /></label><label>Ubicación<input name="location" maxlength="120" placeholder="Ciudad o campus" /></label><label>Lugar de estudio actual<input name="currentStudyPlace" maxlength="160" placeholder="Institución, programa o laboratorio" /></label><label>Imagen de perfil<input name="avatarUrl" type="url" placeholder="https://..." /></label><label>Banner<input name="bannerUrl" type="url" placeholder="https://..." /></label></div>
+    <header class="ps-pf-hero">
+      <div class="ps-pf-banner" id="pf-banner"><label class="ps-pf-camera" title="Cambiar banner" aria-label="Cambiar banner">⌾<input type="file" accept="image/*" id="banner-file" hidden /></label></div>
+      <div class="ps-pf-head">
+        <div class="ps-pf-avatar" id="pf-avatar"><span id="pf-initial">${escapeHTML((authSession?.user.displayName[0] ?? "P").toUpperCase())}</span><label class="ps-pf-camera" title="Cambiar foto" aria-label="Cambiar foto de perfil">⌾<input type="file" accept="image/*" id="avatar-file" hidden /></label></div>
+        <div class="ps-pf-id"><p class="ps-eyebrow">Comunidad / Perfil público · ${roleName}</p><h1 id="module-title">${escapeHTML(authSession?.user.displayName ?? "Tu perfil")}</h1><p id="pf-headline">Cuéntale a la comunidad quién eres.</p><small id="pf-location"></small></div>
+        <div class="ps-pf-actions"><button class="ps-create-button" type="button" id="pf-edit">Editar perfil <span>✎</span></button><span class="ps-feed-tag" id="profile-visibility">—</span></div>
+      </div>
+      <div class="ps-pf-stats"><div><strong id="stat-links">0</strong><span>Enlaces</span></div><div><strong id="stat-highlights">0</strong><span>Trayectoria</span></div><div><strong id="stat-posts">0</strong><span>Publicaciones</span></div></div>
+    </header>
+    <section class="ps-pf-about"><h2>Sobre mí</h2><p id="pf-bio">Aún no has escrito tu biografía pública.</p><small id="pf-study"></small></section>
+    <form class="ps-management-form" id="public-profile-form" hidden>
+      <div class="ps-management-form-heading"><strong>Editar presentación</strong><span>Cambia la foto o el banner con el ícono de cámara</span></div>
+      <div class="ps-management-grid"><label>Nombre visible<input name="displayName" value="${escapeHTML(authSession?.user.displayName ?? "")}" disabled /></label><label>Titular<input name="headline" maxlength="120" placeholder="${role === "teacher" ? "Docente de biología · Tutor" : "Estudiante de ingeniería"}" /></label><label>Ubicación<input name="location" maxlength="120" placeholder="Ciudad o campus" /></label><label>Lugar de estudio actual<input name="currentStudyPlace" maxlength="160" placeholder="Institución, programa o laboratorio" /></label></div>
+      <input name="avatarUrl" type="hidden" /><input name="bannerUrl" type="hidden" />
       <label>Biografía pública<textarea name="publicBio" maxlength="700" placeholder="Comparte tus intereses, trayectoria y qué te gustaría conectar."></textarea></label>
       <label class="ps-check-row"><input name="isPublic" type="checkbox" checked /> Mostrar mi perfil en el directorio público</label>
       <button class="ps-create-button" type="submit">Guardar perfil <span>↗</span></button><p class="ps-management-feedback" id="profile-feedback" role="status"></p>
     </form>
     <div class="ps-profile-columns"><section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Directorio académico</strong><span>Perfiles públicos de la comunidad</span></div><div class="ps-management-list" id="public-profile-directory"><p class="ps-empty-state">Cargando perfiles…</p></div></section>
     <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Mis enlaces y trayectoria</strong><span>Iconotipos para reconocer cada tipo de vínculo</span></div><form class="ps-profile-mini-form" id="profile-link-form"><input name="label" required maxlength="60" placeholder="Nombre del enlace" /><input name="url" required type="url" placeholder="https://..." /><select name="icon"><option value="in">in · Trabajo</option><option value="◎">◎ · Social</option><option value="⌘">⌘ · Académico</option><option value="↗">↗ · Portafolio</option></select><select name="category"><option value="professional">Profesional</option><option value="social">Social</option><option value="academic">Académico</option><option value="portfolio">Portafolio</option></select><button class="ps-secondary-button" type="submit">Agregar enlace</button></form><div class="ps-management-list" id="profile-links-list"><p class="ps-empty-state">Cargando enlaces…</p></div><form class="ps-profile-mini-form" id="profile-highlight-form"><select name="kind"><option value="achievement">Logro académico</option><option value="study">Lugar de estudio</option><option value="experience">Experiencia</option></select><input name="title" required maxlength="100" placeholder="Título o institución" /><input name="organization" maxlength="120" placeholder="Organización" /><input name="icon" value="✦" maxlength="4" aria-label="Iconotipo" /><textarea name="description" maxlength="240" placeholder="Descripción breve"></textarea><button class="ps-secondary-button" type="submit">Agregar trayectoria</button></form><div class="ps-management-list" id="profile-highlights-list"><p class="ps-empty-state">Cargando trayectoria…</p></div></section></div>
-    <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Publicaciones del perfil</strong><span>Comparte proyectos, fotos, videos o documentos mediante enlaces seguros</span></div><form class="ps-profile-post-form" id="profile-post-form"><input name="title" required maxlength="120" placeholder="Título de la publicación" /><textarea name="body" required maxlength="1000" placeholder="Escribe una actualización, proyecto o logro"></textarea><div class="ps-management-grid"><input name="mediaUrl" type="url" placeholder="Enlace a imagen, video o documento (opcional)" /><select name="mediaType"><option value="image">Imagen</option><option value="video">Video</option><option value="document">Documento</option><option value="link">Enlace</option></select></div><button class="ps-create-button" type="submit">Publicar <span>↗</span></button></form><div class="ps-profile-posts" id="profile-posts-list"><p class="ps-empty-state">Cargando publicaciones…</p></div></section>
+    <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Publicar en Noticias</strong><span>Lo que publiques aparece en el módulo Noticias para toda la comunidad</span></div><form class="ps-profile-post-form" id="profile-post-form"><input name="title" required maxlength="120" placeholder="Título de la publicación" /><textarea name="body" required maxlength="1000" placeholder="Escribe una actualización, proyecto o logro"></textarea><div class="ps-management-grid"><input name="mediaUrl" type="url" placeholder="Enlace a imagen, video o documento (opcional)" /><select name="mediaType"><option value="image">Imagen</option><option value="video">Video</option><option value="document">Documento</option><option value="link">Enlace</option></select></div><button class="ps-create-button" type="submit">Publicar en Noticias <span>↗</span></button></form><div class="ps-profile-posts" id="profile-posts-list"><p class="ps-empty-state">Cargando publicaciones…</p></div></section>
   </section>`;
 }
 
