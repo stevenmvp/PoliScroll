@@ -344,6 +344,21 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.owner(), allow.ownerDefinedIn("userId").to(["read"]), allow.groups(["admin", "teacher"])]),
 
+  CatalogItem: a
+    .model({
+      module: a.string().required(),
+      slug: a.string().required(),
+      title: a.string().required(),
+      description: a.string().required(),
+      meta: a.string(),
+      tag: a.string(),
+      available: a.boolean().default(true),
+      sortOrder: a.integer().default(0),
+      active: a.boolean().default(true),
+      createdBy: a.string(),
+    })
+    .authorization((allow) => [allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
+
   AuditLog: a
     .model({
       actorId: a.string().required(),

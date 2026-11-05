@@ -50,6 +50,9 @@ import {
   listNotifications,
   createSupportTicket,
   loadChatHistory,
+  listCatalogItems,
+  seedCatalogItems,
+  createCatalogItem,
   loadServerNotificationPrefs,
   saveServerNotificationPrefs,
   listMyAchievements,
@@ -2298,7 +2301,7 @@ function showCreateActivityDialog(module: ModuleData): void {
     const schedule = String(values.get("schedule") ?? "").trim();
     if (!title || !description || !teacher || !schedule) return;
 
-    module.items.unshift({
+    const newItem: FeedItem = {
       id: `act-${Date.now()}`,
       title,
       description,
@@ -2306,7 +2309,11 @@ function showCreateActivityDialog(module: ModuleData): void {
       tag: "Creada por ti",
       available: true,
       createdByMe: true,
-    });
+    };
+    module.items.unshift(newItem);
+    void createCatalogItem("actividades", { slug: newItem.id, title, description, meta: newItem.meta, tag: "Actividad del campus", available: true, createdBy: authSession?.user.id })
+      .then((id) => { newItem.id = id; })
+      .catch((error: unknown) => console.warn("No se pudo guardar la actividad.", error));
     activityFilter = "mine";
     searchQuery = "";
     document.querySelector<HTMLInputElement>("#module-search")!.value = "";
@@ -2398,6 +2405,28 @@ function showToast(message: string): void {
   toastTimer = window.setTimeout(() => { toast.hidden = true; }, 2200);
 }
 
+const catalogModules = ["actividades", "bienestar", "espacios"];
+
+// Carga el catálogo desde la base; si está vacío y el usuario puede escribir, lo siembra con las tarjetas base.
+async function syncCatalog(): Promise<void> {
+  try {
+    if (visibleRole() !== "student") {
+      const seed: Record<string, Array<{ slug: string; title: string; description: string; meta: string; tag: string; available?: boolean }>> = {};
+      catalogModules.forEach((id) => { seed[id] = (modules.find((module) => module.id === id)?.items ?? []).map((item) => ({ slug: item.id, title: item.title, description: item.description, meta: item.meta, tag: item.tag, available: item.available })); });
+      await seedCatalogItems(seed);
+    }
+    const rows = await listCatalogItems();
+    catalogModules.forEach((id) => {
+      const target = modules.find((module) => module.id === id);
+      const mine = rows.filter((row) => row.module === id);
+      if (!target || !mine.length) return;
+      target.items = mine.map((row) => ({ id: row.id, title: row.title, description: row.description, meta: row.meta ?? "", tag: row.tag ?? "", available: row.available !== false, createdByMe: id === "actividades" && row.createdBy === authSession?.user.id }));
+    });
+  } catch (error) {
+    console.warn("No se pudo sincronizar el catálogo del campus.", error);
+  }
+}
+
 async function bootstrap(): Promise<void> {
   try {
     if (await configureAmplify()) {
@@ -2406,6 +2435,7 @@ async function bootstrap(): Promise<void> {
         await ensureUserProfile(authSession);
         const serverPrefs = await loadServerNotificationPrefs(authSession.user.email).catch(() => null);
         if (serverPrefs) localStorage.setItem(notificationPrefsKey(), JSON.stringify(serverPrefs));
+        await syncCatalog();
         dashboardSummary = await getDashboardSummary(authSession);
         initializeRoute();
       }

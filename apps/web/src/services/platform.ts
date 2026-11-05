@@ -796,3 +796,31 @@ export async function archiveAcademicNote(id: string): Promise<void> {
   const result = await client.models.AcademicNote.update({ id, archived: true });
   if (result.errors?.length) throw new Error("No se pudo archivar la nota.");
 }
+
+export interface CatalogEntry { createdBy?: string; slug: string; title: string; description: string; meta?: string; tag?: string; available?: boolean }
+
+export async function createCatalogItem(module: string, entry: CatalogEntry): Promise<string> {
+  const result = await client.models.CatalogItem.create({ module, ...entry, active: true, sortOrder: Date.now() % 1_000_000_000 });
+  if (result.errors?.length || !result.data) throw new Error("No se pudo guardar la actividad.");
+  await recordAudit("catalog.created", "CatalogItem", result.data.id, undefined, { module, title: entry.title });
+  return result.data.id;
+}
+
+export async function listCatalogItems(): Promise<Schema["CatalogItem"]["type"][]> {
+  const result = await client.models.CatalogItem.list({ limit: 1000, filter: { active: { ne: false } } });
+  if (result.errors?.length) throw new Error("No se pudo cargar el catálogo del campus.");
+  return result.data.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
+// Siembra el catálogo una sola vez; solo corre si la tabla está vacía y el usuario puede escribir.
+export async function seedCatalogItems(entries: Record<string, CatalogEntry[]>): Promise<void> {
+  const existing = await client.models.CatalogItem.list({ limit: 1 });
+  if (existing.errors?.length || existing.data.length) return;
+  let order = 0;
+  for (const [module, items] of Object.entries(entries)) {
+    for (const item of items) {
+      await client.models.CatalogItem.create({ module, ...item, sortOrder: order++, active: true });
+    }
+  }
+  await recordAudit("catalog.seeded", "CatalogItem", undefined, undefined, { modules: Object.keys(entries) });
+}
