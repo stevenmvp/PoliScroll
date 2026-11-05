@@ -693,22 +693,46 @@ export async function markChatRead(conversationId: string, userId: string): Prom
   if (updated.errors?.length) throw new Error("No se pudo marcar el chat como leído.");
 }
 
+export interface ChatMessageView { id: string; body: string; fromUser: boolean; sentAt: string }
+export interface ChatSummary { id: string; title: string; lastMessageAt: string }
 export interface ChatHistory {
   conversationId: string;
-  messages: Array<{ body: string; fromUser: boolean }>;
+  messages: ChatMessageView[];
+}
+
+export async function listChatConversations(userId: string): Promise<ChatSummary[]> {
+  const conversations = await client.models.ChatConversation.list({ filter: { createdBy: { eq: userId }, kind: { eq: "support" } }, limit: 1000 });
+  if (conversations.errors?.length) throw new Error("No se pudieron cargar tus conversaciones.");
+  return conversations.data
+    .filter((item) => item.archived !== true)
+    .map((item) => ({ id: item.id, title: item.title ?? "Conversación", lastMessageAt: item.lastMessageAt ?? item.createdAt }))
+    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+}
+
+export async function loadConversationMessages(conversationId: string): Promise<ChatMessageView[]> {
+  const messages = await client.models.ChatMessage.list({ filter: { conversationId: { eq: conversationId } }, limit: 1000 });
+  if (messages.errors?.length) throw new Error("No se pudo cargar el historial del chat.");
+  return messages.data
+    .filter((item) => !item.deletedAt)
+    .sort((a, b) => a.sentAt.localeCompare(b.sentAt))
+    .map((item) => ({ id: item.id, body: item.body, fromUser: item.senderId !== TUTOR_SENDER_ID, sentAt: item.sentAt }));
 }
 
 export async function loadChatHistory(userId: string): Promise<ChatHistory | null> {
-  const conversations = await client.models.ChatConversation.list({ filter: { createdBy: { eq: userId }, kind: { eq: "support" } }, limit: 1000 });
-  if (conversations.errors?.length) throw new Error("No se pudo cargar tu conversación.");
-  const latest = conversations.data.filter((item) => item.archived !== true).sort((a, b) => (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""))[0];
+  const latest = (await listChatConversations(userId))[0];
   if (!latest) return null;
-  const messages = await client.models.ChatMessage.list({ filter: { conversationId: { eq: latest.id } }, limit: 1000 });
-  if (messages.errors?.length) throw new Error("No se pudo cargar el historial del chat.");
-  return {
-    conversationId: latest.id,
-    messages: messages.data.filter((item) => !item.deletedAt).sort((a, b) => a.sentAt.localeCompare(b.sentAt)).map((item) => ({ body: item.body, fromUser: item.senderId !== TUTOR_SENDER_ID })),
-  };
+  return { conversationId: latest.id, messages: await loadConversationMessages(latest.id) };
+}
+
+export async function renameChatConversation(id: string, title: string): Promise<void> {
+  const result = await client.models.ChatConversation.update({ id, title: title.slice(0, 80) });
+  if (result.errors?.length) throw new Error("No se pudo renombrar la conversación.");
+}
+
+// Se archiva en lugar de borrar para conservar la trazabilidad.
+export async function archiveChatConversation(id: string): Promise<void> {
+  const result = await client.models.ChatConversation.update({ id, archived: true });
+  if (result.errors?.length) throw new Error("No se pudo archivar la conversación.");
 }
 
 export async function recordTutorExchange(input: { conversationId: string; userId: string; prompt: string; response: string }): Promise<void> {

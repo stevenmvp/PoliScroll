@@ -20,12 +20,12 @@ export const handler = async (event: TutorEvent): Promise<{ answer: string }> =>
   try {
     response = await client.send(new ConverseCommand({
     modelId,
-    system: [{ text: "Eres un tutor académico socrático. Responde siempre en español. Explica con claridad, no inventes fuentes y guía al estudiante con preguntas antes de dar una respuesta final." }],
+    system: [{ text: "Eres PoliChat, el tutor académico de una universidad. Responde siempre en español, de forma clara y concisa (máximo unas 250 palabras). Usa Markdown ligero: listas con guiones, **negritas** y saltos de línea. No inventes fuentes. Explica el concepto y cierra con una pregunta breve que guíe al estudiante a pensar por sí mismo." }],
     messages: [{
       role: "user",
       content: [{ text: context ? `Contexto académico:\n${context}\n\nPregunta:\n${prompt}` : prompt }],
     }],
-    inferenceConfig: { temperature: 0.3, maxTokens: 700 },
+    inferenceConfig: { temperature: 0.3, maxTokens: 900 },
   }));
   } catch (error) {
     console.error("Bedrock error", error);

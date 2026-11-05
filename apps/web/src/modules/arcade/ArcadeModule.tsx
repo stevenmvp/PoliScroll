@@ -82,6 +82,7 @@ export default function App({ onGameResult }: ArcadeModuleProps) {
               onBack={handleBackToCatalog}
               onOpenAcademicDrawer={() => setIsAcademicDrawerOpen(true)}
               onGameResult={onGameResult}
+              onChangeGame={setActivePlayingGame}
             />
           ) : (
             <>

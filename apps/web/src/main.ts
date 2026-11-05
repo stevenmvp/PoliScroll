@@ -21,6 +21,7 @@ import {
   finishActivitySession,
   recordActivityEvent,
 } from "./services/data";
+import { chatPanelOpen, chatSurfaceHTML, mountChat, resetChat, setChatPanelOpen } from "./polichat";
 import {
   createCampusEvent,
   createCourse,
@@ -398,6 +399,7 @@ const utilityViews: Record<string, string> = {
   revision: "Revisión de calificaciones",
   solicitudes: "Solicitudes docentes",
   catalogo: "Catálogo del campus",
+  polichat: "PoliChat",
 };
 
 function utilityModule(id: string): ModuleData {
@@ -421,9 +423,6 @@ let authFeedback = "";
 let authFeedbackKind: "error" | "success" = "error";
 let authBusy = false;
 let dashboardSummary: DashboardSummary | null = null;
-let chatConversationId: string | null = null;
-let chatTranscript: Array<{ text: string; className: string }> = [];
-let chatHistoryLoaded = false;
 let roleWorkspaceCollapsed = true;
 let routeInitialized = false;
 
@@ -497,9 +496,8 @@ ${profileMenuItems()}
         <button class="ps-bottom-link${screen === "module" && selectedModuleId === "perfil" ? " is-active" : ""}" type="button" data-bottom-module="perfil" aria-current="${screen === "module" && selectedModuleId === "perfil" ? "page" : "false"}"><span class="ps-bottom-icon" aria-hidden="true">♙</span><span>Perfil</span></button>
       </nav>
       <dialog class="ps-chat-dialog" id="polichat-dialog" aria-labelledby="polichat-title">
-        <div class="ps-chat-heading"><div class="ps-chat-brand"><span class="ps-chat-small-mark" aria-hidden="true">P</span><div><h2 id="polichat-title">PoliChat</h2><span>Mensajería del campus · persistente</span></div></div><button class="ps-dialog-close" id="close-polichat" type="button" aria-label="Cerrar PoliChat">×</button></div>
-        <div class="ps-chat-messages" id="polichat-messages" aria-live="polite"><p class="ps-chat-message is-bot">Escribe tu mensaje y quedará guardado en tu conversación del campus.</p></div>
-        <form class="ps-chat-form" id="polichat-form"><input id="polichat-input" type="text" maxlength="240" placeholder="Escribe tu pregunta" aria-label="Escribe tu pregunta" required /><button type="submit" aria-label="Enviar mensaje">↑</button></form>
+        <div class="ps-chat-heading"><div class="ps-chat-brand"><span class="ps-chat-small-mark" aria-hidden="true">P<i class="ps-chat-online"></i></span><div><h2 id="polichat-title">PoliChat</h2><span data-chat-title>Nueva conversación</span></div></div><div class="ps-chat-tools"><button class="ps-chat-tool" data-chat-new type="button" aria-label="Nueva conversación" title="Nueva conversación">＋</button><button class="ps-chat-tool" data-chat-expand type="button" aria-label="Abrir PoliChat completo" title="Abrir módulo completo">⤢</button><button class="ps-chat-tool" id="close-polichat" type="button" aria-label="Cerrar PoliChat">×</button></div></div>
+        ${chatSurfaceHTML()}
       </dialog>
       <div class="ps-toast" id="toast" role="status" aria-live="polite" hidden></div>
     </div>
@@ -527,9 +525,7 @@ ${profileMenuItems()}
   document.querySelector<HTMLButtonElement>("#sign-out")?.addEventListener("click", async () => {
     await logout();
     authSession = null;
-    chatConversationId = null;
-    chatTranscript = [];
-    chatHistoryLoaded = false;
+    resetChat();
     screen = "home";
     history.replaceState({ screen: "auth" }, "", "#login");
     render();
@@ -559,62 +555,22 @@ ${profileMenuItems()}
   });
 
   const chatDialog = document.querySelector<HTMLDialogElement>("#polichat-dialog");
-  const paintChat = (): void => {
-    const container = document.querySelector<HTMLDivElement>("#polichat-messages");
-    if (!container || !chatTranscript.length) return;
-    container.replaceChildren();
-    chatTranscript.forEach((entry) => appendChatMessage(container, entry.text, entry.className));
-    container.scrollTop = container.scrollHeight;
+  const openChatPanel = (): void => {
+    if (!chatDialog || !authSession || chatDialog.open) return;
+    chatDialog.show();
+    setChatPanelOpen(true);
   };
+  const closeChatPanel = (): void => { chatDialog?.close(); setChatPanelOpen(false); };
+  if (authSession && chatDialog) {
+    mountChat(chatDialog, authSession.user, () => { closeChatPanel(); openModule("polichat"); });
+    if (chatPanelOpen() && !(screen === "module" && selectedModuleId === "polichat")) chatDialog.show();
+  }
   document.querySelector<HTMLButtonElement>("#open-polichat")?.addEventListener("click", () => {
-    chatDialog?.showModal();
-    paintChat();
-    if (!chatHistoryLoaded && authSession) {
-      chatHistoryLoaded = true;
-      void loadChatHistory(authSession.user.id).then((history) => {
-        if (!history) return;
-        chatConversationId = history.conversationId;
-        chatTranscript = history.messages.map((message) => ({ text: message.body, className: message.fromUser ? "is-user" : "is-bot" }));
-        paintChat();
-      }).catch(() => { chatHistoryLoaded = false; });
-    }
-    if (chatConversationId && authSession) void markChatRead(chatConversationId, authSession.user.id).catch(() => undefined);
+    if (chatDialog?.open) closeChatPanel();
+    else if (screen === "module" && selectedModuleId === "polichat") document.querySelector<HTMLTextAreaElement>("#polichat-page [data-chat-input]")?.focus();
+    else openChatPanel();
   });
-  document.querySelector<HTMLButtonElement>("#close-polichat")?.addEventListener("click", () => chatDialog?.close());
-  document.querySelector<HTMLFormElement>("#polichat-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const input = document.querySelector<HTMLInputElement>("#polichat-input");
-    const messages = document.querySelector<HTMLDivElement>("#polichat-messages");
-    const text = input?.value.trim();
-    if (!input || !messages || !text) return;
-
-    input.value = "";
-    appendChatMessage(messages, text, "is-user");
-    chatTranscript.push({ text, className: "is-user" });
-    const send = async (): Promise<void> => {
-      try {
-        if (!chatConversationId) {
-          chatConversationId = await createChatConversation({
-            title: `Conversación de ${authSession?.user.displayName ?? "usuario"}`,
-            createdBy: authSession!.user.id,
-          });
-        }
-        await sendChatMessage({
-          conversationId: chatConversationId,
-          senderId: authSession!.user.id,
-          body: text,
-        });
-        const answer = await askTutor(text, "El estudiante está usando PoliChat dentro de una plataforma educativa universitaria.");
-        appendChatMessage(messages, answer, "is-bot");
-        chatTranscript.push({ text: answer, className: "is-bot" });
-        messages.scrollTop = messages.scrollHeight;
-        await recordTutorExchange({ conversationId: chatConversationId, userId: authSession!.user.id, prompt: text, response: answer });
-      } catch (error) {
-        appendChatMessage(messages, error instanceof Error ? error.message : "No se pudo guardar el mensaje.", "is-bot");
-      }
-    };
-    void send();
-  });
+  document.querySelector<HTMLButtonElement>("#close-polichat")?.addEventListener("click", closeChatPanel);
 
   if (screen === "home") wireHome();
   else wireModule(selectedModule);
@@ -797,6 +753,22 @@ function wireNotesView(): void {
   }).catch(() => { achievements.textContent = "No se pudieron cargar tus logros."; });
 }
 
+function renderPoliChatView(): string {
+  return `<section class="ps-module-view ps-polichat-view" id="polichat-page" aria-labelledby="module-title">
+    <div class="ps-module-heading"><div><p class="ps-eyebrow">Mensajes / PoliChat</p><h1 id="module-title">PoliChat.</h1><p class="ps-module-description">Tu tutor académico con IA. Cada conversación queda guardada y puedes retomarla cuando quieras.</p></div></div>
+    <div class="ps-pc-layout">
+      <aside class="ps-pc-sidebar"><button class="ps-create-button" data-chat-new type="button">Nueva conversación <span>＋</span></button><div class="ps-pc-list" data-chat-list></div></aside>
+      <section class="ps-pc-main"><header class="ps-pc-header"><div class="ps-chat-brand"><span class="ps-chat-small-mark" aria-hidden="true">P<i class="ps-chat-online"></i></span><div><strong data-chat-title>Nueva conversación</strong><span>Tutor IA · Amazon Bedrock</span></div></div><div class="ps-chat-tools"><button class="ps-chat-tool" data-chat-rename type="button" title="Renombrar" aria-label="Renombrar conversación">✎</button><button class="ps-chat-tool" data-chat-archive type="button" title="Archivar" aria-label="Archivar conversación">▣</button></div></header>
+        ${chatSurfaceHTML()}
+      </section>
+    </div></section>`;
+}
+
+function wirePoliChatView(): void {
+  const page = document.querySelector<HTMLElement>("#polichat-page");
+  if (page && authSession) mountChat(page, authSession.user);
+}
+
 function renderHelpView(): string {
   return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
     <div class="ps-module-heading"><div><p class="ps-eyebrow">Soporte / Ayuda y PQRS</p><h1 id="module-title">Ayuda y PQRS.</h1><p class="ps-module-description">Envía peticiones, quejas, reclamos o sugerencias. El equipo responderá aquí y te avisará en la campanita.</p></div></div>
@@ -861,7 +833,7 @@ function profileMenuItems(): string {
   } else {
     groups.push(item("perfil", "♙", "Mi perfil público"), item("progreso", "◷", "Mi progreso"), item("notas", "✎", "Mis notas y logros"), item("noticias", "▤", "Mis publicaciones y noticias"), item("comunidades", "◌", "Mis grupos"), item("cursos", "▦", "Mis cursos"), item("tutorias", "✦", "Tutorías"));
   }
-  groups.push(`<button type="button" role="menuitem" id="menu-messages"><span aria-hidden="true">✉</span>Mensajes · PoliChat</button>`);
+  groups.push(item("polichat", "✉", "Mensajes · PoliChat"));
   groups.push(item("bienestar", "♡", "Bienestar"), item("ayuda", "?", "Ayuda y PQRS"), item("cuenta", "⚙", "Configuración de cuenta"));
   return groups.join("");
 }
@@ -910,7 +882,6 @@ function wireTopbarMenus(closeDrawer: () => void): void {
   profileMenu.addEventListener("click", (event) => event.stopPropagation());
   bellPanel.addEventListener("click", (event) => event.stopPropagation());
   document.querySelector<HTMLButtonElement>("#menu-notifications")?.addEventListener("click", (event) => { event.stopPropagation(); closeAll(); bellPanel.hidden = false; bellButton.setAttribute("aria-expanded", "true"); refresh(); });
-  document.querySelector<HTMLButtonElement>("#menu-messages")?.addEventListener("click", () => { closeAll(); document.querySelector<HTMLButtonElement>("#open-polichat")?.click(); });
   document.querySelector<HTMLButtonElement>("#menu-home")?.addEventListener("click", () => { closeAll(); goHome(); });
   document.querySelectorAll<HTMLButtonElement>("[data-menu-module]").forEach((button) => button.addEventListener("click", () => { closeAll(); openModule(button.dataset.menuModule ?? "perfil"); }));
   document.querySelector<HTMLButtonElement>("#mark-all-read")?.addEventListener("click", () => {
@@ -1134,13 +1105,6 @@ async function submitAuth(event: SubmitEvent): Promise<void> {
   render();
 }
 
-function appendChatMessage(container: HTMLDivElement, text: string, className: string): void {
-  const message = document.createElement("p");
-  message.className = `ps-chat-message ${className}`;
-  message.textContent = text;
-  container.append(message);
-}
-
 function renderHome(): string {
   return `
     ${renderRoleWorkspace()}
@@ -1220,6 +1184,7 @@ function renderModule(module: ModuleData): string {
   if (module.id === "revision") return renderTeacherReviewModule();
   if (module.id === "solicitudes") return renderTeacherApplicationsView();
   if (module.id === "catalogo") return renderCatalogAdminView();
+  if (module.id === "polichat") return renderPoliChatView();
   const isActivities = module.id === "actividades";
   const isGames = module.id === "juegos";
   if (module.id === "cursos") return renderCoursesModule(module);
@@ -1403,6 +1368,7 @@ function wireModule(module: ModuleData): void {
   if (module.id === "revision") { wireAcademicModule("teacher"); return; }
   if (module.id === "solicitudes") { wireTeacherApplicationsView(); return; }
   if (module.id === "catalogo") { wireCatalogAdminView(); return; }
+  if (module.id === "polichat") { wirePoliChatView(); return; }
   if (module.id === "perfil" && (visibleRole() === "admin" || authSession?.user.role === "super_admin")) {
     wireAdminModule();
     return;

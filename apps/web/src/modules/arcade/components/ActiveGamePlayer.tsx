@@ -4,7 +4,7 @@ import { soundManager } from '../services/soundManager';
 import { progressionStore } from '../services/progressionStore';
 import { academicStore } from '../services/academicStore';
 import { themeStore } from '../services/themeStore';
-import { loadGameComponent, loadGameResources } from '../games/registry';
+import { loadGameComponent, loadGameResources, getAllGames } from '../games/registry';
 import {
   ArrowLeft,
   RotateCcw,
@@ -17,6 +17,8 @@ import {
   BookOpen,
   Maximize2,
   Minimize2,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 
 interface ActiveGamePlayerProps {
@@ -24,6 +26,7 @@ interface ActiveGamePlayerProps {
   onBack: () => void;
   onOpenAcademicDrawer: () => void;
   onGameResult?: (game: GameDefinition, result: GameResult) => void;
+  onChangeGame?: (game: GameDefinition) => void;
 }
 
 export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
@@ -31,6 +34,7 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
   onBack,
   onOpenAcademicDrawer,
   onGameResult,
+  onChangeGame,
 }) => {
   const [sessionKey, setSessionKey] = useState(1);
   const [currentScore, setCurrentScore] = useState(0);
@@ -48,6 +52,19 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
   const [componentError, setComponentError] = useState<string | null>(null);
 
   const prevScoreRef = useRef(0);
+  const lastSwitchRef = useRef(0);
+  const touchStartRef = useRef<number | null>(null);
+
+  const allGames = getAllGames();
+  const gameIndex = allGames.findIndex((item) => item.id === game.id);
+  const switchGame = (direction: 1 | -1) => {
+    const now = Date.now();
+    if (!onChangeGame || allGames.length < 2 || now - lastSwitchRef.current < 500) return;
+    lastSwitchRef.current = now;
+    soundManager.playClick('C5');
+    onChangeGame(allGames[(gameIndex + direction + allGames.length) % allGames.length]);
+  };
+  const neighbor = (direction: 1 | -1) => allGames[(gameIndex + direction + allGames.length) % allGames.length];
 
   useEffect(() => {
     const unsubAcademic = academicStore.subscribe(() => {
@@ -104,10 +121,12 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
       if (e.key === 'Escape') {
         onBack();
       }
+      if (e.key === 'PageDown') { e.preventDefault(); switchGame(1); }
+      if (e.key === 'PageUp') { e.preventDefault(); switchGame(-1); }
     };
     window.addEventListener('keydown', preventScrollAndEsc, { passive: false });
     return () => window.removeEventListener('keydown', preventScrollAndEsc);
-  }, [onBack]);
+  }, [onBack, game.id]);
 
   const handleScoreUpdate = (rawScore: number) => {
     if (rawScore > prevScoreRef.current) {
@@ -163,6 +182,29 @@ export const ActiveGamePlayer: React.FC<ActiveGamePlayerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-100 flex flex-col justify-between overflow-hidden select-none">
+      {onChangeGame && gameIndex >= 0 && (
+        <nav
+          aria-label="Cambiar de juego"
+          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-[60] flex flex-col items-center gap-2 rounded-full bg-white/90 border border-slate-200 shadow-lg backdrop-blur-md p-1.5 touch-none"
+          onWheel={(e) => { if (Math.abs(e.deltaY) > 8) switchGame(e.deltaY > 0 ? 1 : -1); }}
+          onTouchStart={(e) => { touchStartRef.current = e.touches[0].clientY; }}
+          onTouchEnd={(e) => {
+            const start = touchStartRef.current;
+            touchStartRef.current = null;
+            if (start === null) return;
+            const delta = start - e.changedTouches[0].clientY;
+            if (Math.abs(delta) > 30) switchGame(delta > 0 ? 1 : -1);
+          }}
+        >
+          <button type="button" onClick={() => switchGame(-1)} title={`Anterior: ${neighbor(-1).title} (Re Pág)`} aria-label={`Juego anterior: ${neighbor(-1).title}`} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-700 flex items-center justify-center transition-colors active:scale-90">
+            <ChevronUp className="w-5 h-5" />
+          </button>
+          <span className="text-[10px] font-black text-slate-500 tabular-nums leading-none">{gameIndex + 1}/{allGames.length}</span>
+          <button type="button" onClick={() => switchGame(1)} title={`Siguiente: ${neighbor(1).title} (Av Pág)`} aria-label={`Siguiente juego: ${neighbor(1).title}`} className="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-colors shadow-md active:scale-90">
+            <ChevronDown className="w-5 h-5" />
+          </button>
+        </nav>
+      )}
       {/* Top Contemporary White HUD Bar */}
       <header className="w-full bg-white/95 border-b border-slate-200/90 px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 shadow-xs backdrop-blur-md">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">

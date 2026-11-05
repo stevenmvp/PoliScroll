@@ -268,6 +268,7 @@ export const AcademicFeedbackDrawer: React.FC<AcademicFeedbackDrawerProps> = ({
           </button>
         </div>
 
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
         {/* Topic Selector & Stats Section */}
         <div className="p-4 sm:p-5 bg-slate-50/70 border-b border-slate-200 shrink-0 space-y-3">
           {/* Active Topic Banner & Switcher */}
@@ -511,7 +512,7 @@ export const AcademicFeedbackDrawer: React.FC<AcademicFeedbackDrawerProps> = ({
         </div>
 
         {/* Scrollable Feedback Feed */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-100/50">
+        <div className="p-4 sm:p-5 space-y-3.5 bg-slate-100/50 min-h-[40%]">
           {filteredLogs.length === 0 ? (
             <div className="text-center py-12 px-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
               <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
@@ -640,10 +641,11 @@ export const AcademicFeedbackDrawer: React.FC<AcademicFeedbackDrawerProps> = ({
             })
           )}
         </div>
+        </div>
 
         {/* AI Tutor Interactive Chat Sliding Session Modal/Sheet */}
         {activeChatLog && (
-          <div className="border-t border-slate-200 bg-white p-4 shadow-xl flex flex-col max-h-[50%] h-[340px] shrink-0 animate-in slide-in-from-bottom duration-200">
+          <div className="border-t border-slate-200 bg-white p-4 shadow-xl flex flex-col max-h-[55%] h-[340px] shrink-0 animate-in slide-in-from-bottom duration-200">
             {/* Chat Header */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2">
