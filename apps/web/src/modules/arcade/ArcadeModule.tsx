@@ -65,7 +65,7 @@ export default function App({ onGameResult }: ArcadeModuleProps) {
         />
 
         {/* Main View Router */}
-        <main className="min-h-0 pb-8">
+        <main key={`${activeTab}-${activePlayingGame?.id ?? ""}-${activeWorkoutCount ?? ""}`} className="ps-arcade-view min-h-0 pb-8">
           {activeWorkoutCount !== null ? (
             <WorkoutRunner
               totalGames={activeWorkoutCount}

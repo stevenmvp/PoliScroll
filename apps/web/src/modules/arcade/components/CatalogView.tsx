@@ -108,7 +108,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             <Gamepad2 className="w-9 h-9 md:w-11 md:h-11" />
             <div className="mt-3 text-xl md:text-2xl font-black">Solo jugar</div>
             <p className={`mt-1 text-sm ${gameplayMode === 'arcade' ? 'text-white/90' : 'text-slate-500'}`}>Pura diversión: reflejos, ritmo y récords, sin preguntas.</p>
-            {gameplayMode === 'arcade' && <span className="absolute top-4 right-4 rounded-full bg-white/25 px-3 py-1 text-[11px] font-black uppercase tracking-wide">Activo</span>}
+            {gameplayMode === 'arcade' && <span className="ps-pop-in absolute top-4 right-4 rounded-full bg-white/25 px-3 py-1 text-[11px] font-black uppercase tracking-wide">Activo</span>}
           </button>
           <button
             type="button"
@@ -120,7 +120,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             <GraduationCap className="w-9 h-9 md:w-11 md:h-11" />
             <div className="mt-3 text-xl md:text-2xl font-black">Aprender jugando</div>
             <p className={`mt-1 text-sm ${gameplayMode === 'academia' ? 'text-white/90' : 'text-slate-500'}`}>Cada juego se adapta a un tema académico y un tutor te ayuda a entenderlo.</p>
-            {gameplayMode === 'academia' && <span className="absolute top-4 right-4 rounded-full bg-white/25 px-3 py-1 text-[11px] font-black uppercase tracking-wide">Activo</span>}
+            {gameplayMode === 'academia' && <span className="ps-pop-in absolute top-4 right-4 rounded-full bg-white/25 px-3 py-1 text-[11px] font-black uppercase tracking-wide">Activo</span>}
           </button>
         </div>
 
@@ -195,15 +195,16 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
       <div className={catalogMode === 'reels'
         ? 'arcade-reels flex flex-col gap-5 overflow-y-auto snap-y snap-mandatory pr-1'
         : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6'}>
-        {filteredGames.map((game) => {
+        {filteredGames.map((game, gameIndex) => {
           const isUnlocked = progression.unlockedGames.includes(game.id);
           const highScore = progression.gameHighScores[game.id] || 0;
           const difficulty = difficultyStyle[game.difficulty] ?? difficultyStyle.medio;
 
           return (
             <article
-              key={game.id}
-              className={`group relative flex min-w-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xs transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${catalogMode === 'reels' ? 'snap-start' : ''}`}
+              key={`${selectedCategory}-${game.id}`}
+              style={{ animationDelay: `${Math.min(gameIndex, 8) * 55}ms` }}
+              className={`ps-card-rise group relative flex min-w-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xs transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${catalogMode === 'reels' ? 'snap-start' : ''}`}
             >
               <button
                 type="button"
