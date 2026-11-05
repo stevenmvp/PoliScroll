@@ -207,6 +207,7 @@ export async function updateSupportTicket(input: {
   assignedTo?: string;
   response?: string;
 }): Promise<void> {
+  const ticket = await client.models.SupportTicket.get({ id: input.id });
   const result = await client.models.SupportTicket.update({
     id: input.id,
     status: input.status,
@@ -215,6 +216,14 @@ export async function updateSupportTicket(input: {
     updatedAt: new Date().toISOString(),
   });
   if (result.errors?.length) throw new Error("No se pudo actualizar el ticket.");
+  const requesterId = ticket.data?.requesterId;
+  if (requesterId && (input.response || ticket.data?.status !== input.status)) {
+    try {
+      await notifyUsers([requesterId], { title: input.response ? "Respondieron tu solicitud" : "Tu solicitud cambió de estado", body: input.response ?? `${ticket.data?.subject}: ahora está "${input.status}".`, type: "message", actionUrl: "#module/ayuda" });
+    } catch {
+      // El ticket ya se actualizó; el aviso es secundario.
+    }
+  }
 }
 
 export async function createTeacherApplication(input: {
@@ -369,6 +378,26 @@ export async function listNewsArticles(): Promise<Schema["NewsArticle"]["type"][
   return result.data;
 }
 
+type NotificationKind = "system" | "activity" | "message" | "event";
+
+export async function notifyUsers(userIds: string[], input: { title: string; body: string; type: NotificationKind; actionUrl?: string }): Promise<void> {
+  const createdAt = new Date().toISOString();
+  const unique = [...new Set(userIds)];
+  for (let index = 0; index < unique.length; index += 20) {
+    await Promise.all(unique.slice(index, index + 20).map((userId) => client.models.Notification.create({ userId, createdAt, ...input })));
+  }
+}
+
+async function notifyCommunity(input: { title: string; body: string; type: NotificationKind; actionUrl?: string }, excludeUserId: string): Promise<void> {
+  try {
+    const profiles = await client.models.PublicProfile.list({ limit: 1000 });
+    const recipients = profiles.data.map((profile) => profile.userId).filter((userId) => userId !== excludeUserId);
+    await notifyUsers(recipients, input);
+  } catch {
+    // La publicación ya se guardó; un fallo al avisar no debe revertirla.
+  }
+}
+
 export async function createNewsArticle(input: {
   title: string;
   summary: string;
@@ -377,7 +406,7 @@ export async function createNewsArticle(input: {
   coverImageUrl?: string;
   mediaLinks?: string[];
   sourceEventId?: string;
-}): Promise<void> {
+}, options: { notify?: boolean } = {}): Promise<void> {
   const result = await client.models.NewsArticle.create({
     ...input,
     status: "published",
@@ -385,6 +414,7 @@ export async function createNewsArticle(input: {
     version: 1,
   });
   if (result.errors?.length) throw new Error("No se pudo publicar la noticia.");
+  if (options.notify) await notifyCommunity({ title: "Nueva noticia", body: input.title, type: "system", actionUrl: "#module/noticias" }, input.authorId);
 }
 
 export async function archiveNewsArticle(id: string): Promise<void> {
@@ -412,6 +442,7 @@ export async function createCampusEvent(input: {
     status: "published",
   });
   if (result.errors?.length) throw new Error("No se pudo crear el evento.");
+  await notifyCommunity({ title: "Nuevo evento en el campus", body: `${input.title} · ${new Date(input.startsAt).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}`, type: "event", actionUrl: "#module/actividades" }, input.organizerId);
 }
 
 export async function listCourses(): Promise<Schema["Course"]["type"][]> {

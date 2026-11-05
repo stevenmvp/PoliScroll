@@ -1673,7 +1673,7 @@ function wireAdminModule(): void {
       authorId: authSession!.user.id,
       coverImageUrl: String(values.get("coverImageUrl") ?? "").trim() || undefined,
       mediaLinks: String(values.get("mediaLinks") ?? "").trim() ? [String(values.get("mediaLinks")).trim()] : [],
-    }).then(() => { if (feedback) feedback.textContent = "Noticia publicada."; render(); }).catch((error: unknown) => { if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar la noticia."; });
+    }, { notify: true }).then(() => { if (feedback) feedback.textContent = "Noticia publicada."; render(); }).catch((error: unknown) => { if (feedback) feedback.textContent = error instanceof Error ? error.message : "No se pudo publicar la noticia."; });
   });
   void Promise.all([listUserProfiles(), listAuditLogs(), listNewsArticles(), listArcadeGameConfigs(), listSupportTickets(), listTeacherApplications()]).then(([profiles, logs, articles, gameConfigs, supportTickets, teacherApplications]) => {
     const uniqueProfiles = [...new Map(profiles.map((profile) => [profile.email.toLowerCase(), profile])).values()];
@@ -1944,7 +1944,7 @@ function wireManagementModule(type: "groups" | "news" | "events" | "join"): void
         authorId: authSession!.user.id,
         coverImageUrl: String(data.get("coverImageUrl") ?? "").trim() || undefined,
         mediaLinks: String(data.get("mediaLinks") ?? "").trim() ? [String(data.get("mediaLinks")).trim()] : [],
-        })
+        }, { notify: true })
         : createCampusEvent({
           title: String(data.get("title") ?? "").trim(),
           description: String(data.get("description") ?? "").trim(),
