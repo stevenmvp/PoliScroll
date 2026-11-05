@@ -139,6 +139,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: 12px;
 	min-height: 72px;
 	padding: 0 max(24px, calc((100vw - 1180px) / 2));
 	border-bottom: 1px solid rgba(213, 227, 231, .9);
@@ -198,7 +199,7 @@
 .ps-campus { display: inline-flex; align-items: center; gap: 8px; color: var(--ps-muted); font-size: 12px; font-weight: 700; }
 .ps-online-dot { width: 7px; height: 7px; border-radius: 50%; background: #75a83b; box-shadow: 0 0 0 4px #75a83b1c; }
 .ps-user-mark { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #bedbdc; border-radius: 50%; background: #e5f3f1; color: #247b76; font-size: 13px; font-weight: 800; }
-.ps-back { gap: 8px; border: 1px solid var(--ps-line); border-radius: 6px; padding: 9px 12px; background: #fff; font-size: 12px; transition: border-color .18s, transform .18s; }
+.ps-back { gap: 8px; border: 1px solid var(--ps-line); border-radius: 6px; padding: 9px 12px; background: #fff; font-size: 12px; transition: border-color .18s, transform .18s; order: -1; }
 .ps-back:hover { border-color: var(--ps-cyan); transform: translateX(-2px); }
 .ps-back span { font-size: 17px; }
 

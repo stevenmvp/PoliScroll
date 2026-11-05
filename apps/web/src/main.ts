@@ -423,9 +423,9 @@ function render(): void {
   root.innerHTML = `
     <div class="ps-app">
       <header class="ps-topbar">
-        <button class="ps-brand" id="go-home" type="button" aria-label="Volver al menu principal">
+        ${screen === "module" ? `<button class="ps-back" id="back-to-menu" type="button"><span aria-hidden="true">←</span> Menú principal</button>` : `<button class="ps-brand" id="go-home" type="button" aria-label="Volver al menu principal">
           <span class="ps-brand-mark" aria-hidden="true">P</span><span>PoliScroll</span>
-        </button>
+        </button>`}
         <button class="ps-module-menu-trigger" id="open-module-menu" type="button" aria-expanded="false"><span aria-hidden="true">☰</span> Módulos</button>
         <aside class="ps-module-drawer" id="module-drawer" aria-label="Módulos del campus" aria-hidden="true">
           <div class="ps-module-drawer-heading"><strong>PoliScroll</strong><button id="close-module-menu" type="button" aria-label="Cerrar menú">×</button></div>
@@ -436,7 +436,6 @@ function render(): void {
         <div class="ps-module-drawer-backdrop" id="module-drawer-backdrop" hidden></div>
         <div class="ps-topbar-right">
           <span class="ps-campus"><span class="ps-online-dot"></span> Campus conectado</span>
-          ${screen === "module" ? `<button class="ps-back" id="back-to-menu" type="button"><span aria-hidden="true">←</span> Menú principal</button>` : ""}
           ${authSession.user.role === "admin" || authSession.user.role === "super_admin" ? `<div class="ps-perspective-switcher" aria-label="Perspectiva administrativa"><span>Vista</span><button type="button" class="${adminPreviewRole === "student" ? "is-active" : ""}" data-preview-role="student">Estudiante</button><button type="button" class="${adminPreviewRole === "teacher" ? "is-active" : ""}" data-preview-role="teacher">Docente</button><button type="button" class="${!adminPreviewRole ? "is-active" : ""}" data-preview-role="admin">Admin</button></div>` : ""}
           <span class="ps-role-badge">${roleLabel(adminPreviewRole ?? authSession.user.role)}</span>
           <button class="ps-user-mark" id="sign-out" type="button" aria-label="Cerrar sesión">${initialsForSession()}</button>
