@@ -7,6 +7,6 @@ import { tutor } from "./functions/tutor/resource.js";
 const backend = defineBackend({ auth, data, tutor });
 
 backend.tutor.resources.lambda.addToRolePolicy(new PolicyStatement({
-  actions: ["bedrock:InvokeModel", "bedrock:Converse"],
-  resources: ["arn:aws:bedrock:*::foundation-model/amazon.nova-*", "arn:aws:bedrock:*:*:inference-profile/*.amazon.nova-*"],
+  actions: ["bedrock:InvokeModel"],
+  resources: ["arn:aws:bedrock:*::foundation-model/amazon.nova-*", "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-*"],
 }));
