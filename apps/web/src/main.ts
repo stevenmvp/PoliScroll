@@ -1257,7 +1257,7 @@ function renderModule(module: ModuleData): string {
   }
   if (isGames) {
     return `<section class="ps-module-view ps-arcade-module" aria-labelledby="module-title">
-      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Juegos <span class="ps-breadcrumb">/ PoliArcade</span></p><h1 id="module-title">PoliArcade<span class="ps-heading-period">.</span></h1><p class="ps-module-description">El arcade educativo de PoliScroll: 16 juegos 2D y 3D, entrenamientos, metrónomo, sonidos y tutor académico.</p></div><div class="ps-module-total"><span>Juegos portados</span><strong>16</strong></div></div>
+      <div class="ps-module-heading"><div><p class="ps-eyebrow"><span class="ps-eyebrow-line"></span>Juegos <span class="ps-breadcrumb">/ PoliArcade</span></p><h1 id="module-title">PoliArcade<span class="ps-heading-period">.</span></h1><p class="ps-module-description">Juega por diversión o aprende mientras juegas: 16 juegos 2D y 3D, rachas de entrenamiento y un tutor que te acompaña.</p></div><div class="ps-module-total"><span>Juegos portados</span><strong>16</strong></div></div>
       <div id="arcade-root" class="ps-arcade-root"></div>
     </section>`;
   }
