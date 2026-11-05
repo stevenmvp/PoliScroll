@@ -51,6 +51,8 @@ import {
   createSupportTicket,
   loadChatHistory,
   listCatalogItems,
+  listAllCatalogItems,
+  updateCatalogItem,
   seedCatalogItems,
   createCatalogItem,
   loadServerNotificationPrefs,
@@ -395,6 +397,7 @@ const utilityViews: Record<string, string> = {
   notas: "Mis notas y logros",
   revision: "Revisión de calificaciones",
   solicitudes: "Solicitudes docentes",
+  catalogo: "Catálogo del campus",
 };
 
 function utilityModule(id: string): ModuleData {
@@ -698,6 +701,48 @@ function wireAccountView(): void {
 
 const ticketStatusLabels: Record<string, string> = { open: "Abierta", in_progress: "En atención", resolved: "Resuelta", closed: "Cerrada" };
 
+function renderCatalogAdminView(): string {
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+    <div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Catálogo</p><h1 id="module-title">Catálogo del campus.</h1><p class="ps-module-description">Edita, oculta o restaura las tarjetas de actividades, bienestar y espacios. Cada cambio queda en la auditoría.</p></div></div>
+    <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Elementos</strong><span id="catalog-count"></span></div><p class="ps-management-feedback" id="catalog-feedback" role="status"></p><div class="ps-management-list" id="catalog-list"><p class="ps-empty-state">Cargando…</p></div></section></section>`;
+}
+
+function wireCatalogAdminView(): void {
+  const list = document.querySelector<HTMLDivElement>("#catalog-list");
+  const feedback = document.querySelector<HTMLParagraphElement>("#catalog-feedback");
+  const count = document.querySelector<HTMLElement>("#catalog-count");
+  if (!list || !feedback) return;
+  const paint = async (): Promise<void> => {
+    const rows = await listAllCatalogItems();
+    if (count) count.textContent = `${rows.length} elementos`;
+    list.innerHTML = rows.map((row) => `<form class="ps-management-card" data-catalog-id="${row.id}"><div>
+      <span class="ps-feed-tag">${escapeHTML(row.module)}${row.active === false ? " · Oculto" : ""}</span>
+      <label>Título<input name="title" value="${escapeHTML(row.title)}" required maxlength="120" /></label>
+      <label>Descripción<textarea name="description" required maxlength="500">${escapeHTML(row.description)}</textarea></label>
+      <label>Detalle<input name="meta" value="${escapeHTML(row.meta ?? "")}" maxlength="160" /></label>
+      <label>Etiqueta<input name="tag" value="${escapeHTML(row.tag ?? "")}" maxlength="60" /></label>
+      <label class="ps-check-row"><input type="checkbox" name="available" ${row.available === false ? "" : "checked"} /> Disponible</label></div>
+      <div><button class="ps-create-button" type="submit">Guardar</button> <button type="button" class="ps-create-button" data-toggle-active="${row.active === false ? "show" : "hide"}">${row.active === false ? "Restaurar" : "Ocultar"}</button></div></form>`).join("") || `<p class="ps-empty-state">El catálogo se sembrará cuando entre un admin o docente.</p>`;
+    list.querySelectorAll<HTMLFormElement>("form[data-catalog-id]").forEach((form) => {
+      const id = form.dataset.catalogId ?? "";
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const values = new FormData(form);
+        feedback.textContent = "Guardando…";
+        void updateCatalogItem(id, { title: String(values.get("title") ?? "").trim(), description: String(values.get("description") ?? "").trim(), meta: String(values.get("meta") ?? "").trim(), tag: String(values.get("tag") ?? "").trim(), available: values.get("available") === "on" })
+          .then(() => { feedback.textContent = "Cambios guardados."; return syncCatalog(); })
+          .catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo guardar."; });
+      });
+      form.querySelector<HTMLButtonElement>("[data-toggle-active]")?.addEventListener("click", (event) => {
+        const hide = (event.currentTarget as HTMLButtonElement).dataset.toggleActive === "hide";
+        void updateCatalogItem(id, { active: !hide }).then(() => { feedback.textContent = hide ? "Elemento oculto." : "Elemento restaurado."; return Promise.all([paint(), syncCatalog()]); })
+          .catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo actualizar."; });
+      });
+    });
+  };
+  void paint().catch((error: unknown) => { list.textContent = error instanceof Error ? error.message : "No se pudo cargar el catálogo."; });
+}
+
 function renderNotesView(): string {
   return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
     <div class="ps-module-heading"><div><p class="ps-eyebrow">Tu cuenta / Notas</p><h1 id="module-title">Mis notas y logros.</h1><p class="ps-module-description">Tus apuntes académicos se guardan en tu cuenta con control de versiones; los logros se desbloquean con tu actividad.</p></div></div>
@@ -798,7 +843,7 @@ function profileMenuItems(): string {
   const item = (id: string, icon: string, label: string): string => `<button type="button" role="menuitem" data-menu-module="${id}"><span aria-hidden="true">${icon}</span>${label}</button>`;
   const groups: string[] = [];
   if (role === "admin" || role === "super_admin") {
-    groups.push(item("perfil", "⌘", "Panel de control"), item("solicitudes", "✔", "Solicitudes docentes"), item("noticias", "▤", "Noticias del campus"), item("comunidades", "◌", "Grupos de estudio"));
+    groups.push(item("perfil", "⌘", "Panel de control"), item("solicitudes", "✔", "Solicitudes docentes"), item("catalogo", "▦", "Catálogo del campus"), item("noticias", "▤", "Noticias del campus"), item("comunidades", "◌", "Grupos de estudio"));
   } else if (role === "teacher") {
     groups.push(item("perfil", "♙", "Mi perfil público"), item("revision", "✎", "Revisión de calificaciones"), item("noticias", "▤", "Mis publicaciones"), item("comunidades", "◌", "Mis grupos"), item("cursos", "▦", "Mis cursos"), item("tutorias", "✦", "Tutorías"));
   } else {
@@ -1162,6 +1207,7 @@ function renderModule(module: ModuleData): string {
   if (module.id === "progreso") return renderStudentProgressModule();
   if (module.id === "revision") return renderTeacherReviewModule();
   if (module.id === "solicitudes") return renderTeacherApplicationsView();
+  if (module.id === "catalogo") return renderCatalogAdminView();
   const isActivities = module.id === "actividades";
   const isGames = module.id === "juegos";
   if (module.id === "cursos") return renderCoursesModule(module);
@@ -1343,6 +1389,7 @@ function wireModule(module: ModuleData): void {
   if (module.id === "progreso") { wireAcademicModule("student"); return; }
   if (module.id === "revision") { wireAcademicModule("teacher"); return; }
   if (module.id === "solicitudes") { wireTeacherApplicationsView(); return; }
+  if (module.id === "catalogo") { wireCatalogAdminView(); return; }
   if (module.id === "perfil" && (visibleRole() === "admin" || authSession?.user.role === "super_admin")) {
     wireAdminModule();
     return;

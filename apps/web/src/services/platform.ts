@@ -806,6 +806,19 @@ export async function createCatalogItem(module: string, entry: CatalogEntry): Pr
   return result.data.id;
 }
 
+export async function updateCatalogItem(id: string, changes: { title?: string; description?: string; meta?: string; tag?: string; available?: boolean; active?: boolean }): Promise<void> {
+  const before = await client.models.CatalogItem.get({ id });
+  const result = await client.models.CatalogItem.update({ id, ...changes });
+  if (result.errors?.length) throw new Error("No se pudo actualizar el elemento del catálogo.");
+  await recordAudit(changes.active === false ? "catalog.archived" : "catalog.updated", "CatalogItem", id, { title: before.data?.title, tag: before.data?.tag, available: before.data?.available, active: before.data?.active }, changes);
+}
+
+export async function listAllCatalogItems(): Promise<Schema["CatalogItem"]["type"][]> {
+  const result = await client.models.CatalogItem.list({ limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudo cargar el catálogo del campus.");
+  return result.data.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
 export async function listCatalogItems(): Promise<Schema["CatalogItem"]["type"][]> {
   const result = await client.models.CatalogItem.list({ limit: 1000, filter: { active: { ne: false } } });
   if (result.errors?.length) throw new Error("No se pudo cargar el catálogo del campus.");
