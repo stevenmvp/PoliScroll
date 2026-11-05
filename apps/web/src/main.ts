@@ -13,6 +13,7 @@ import {
   login,
   logout,
   register,
+  changePassword,
 } from "./services/amplify";
 import {
   createActivitySession,
@@ -47,6 +48,7 @@ import {
   listGradeRecords,
   listNewsArticles,
   listNotifications,
+  createSupportTicket,
   markNotificationRead,
   listStudyGroups,
   listTutoringOffers,
@@ -375,6 +377,18 @@ if (!appRoot) throw new Error("No se encontro el contenedor principal.");
 const root: HTMLDivElement = appRoot;
 
 let screen: "home" | "module" = "home";
+const utilityViews: Record<string, string> = {
+  cuenta: "Configuración de cuenta",
+  ayuda: "Ayuda y PQRS",
+  progreso: "Mi progreso",
+  revision: "Revisión de calificaciones",
+  solicitudes: "Solicitudes docentes",
+};
+
+function utilityModule(id: string): ModuleData {
+  return { id, title: utilityViews[id] ?? id, category: "Tu cuenta", description: "", icon: "◉", tone: "ink", metric: "", total: "", action: "", items: [] };
+}
+
 let selectedModuleId = modules[0].id;
 let activeDeckIndex = 0;
 let searchQuery = "";
@@ -418,7 +432,7 @@ function render(): void {
   }
 
   unmountArcade();
-  const selectedModule = modules.find((module) => module.id === selectedModuleId) ?? modules[0];
+  const selectedModule = modules.find((module) => module.id === selectedModuleId) ?? (selectedModuleId in utilityViews ? utilityModule(selectedModuleId) : modules[0]);
   root.innerHTML = `
     <div class="ps-app">
       <header class="ps-topbar">
@@ -441,14 +455,7 @@ function render(): void {
             <button class="ps-user-mark" id="open-profile-menu" type="button" aria-label="Menú de perfil" aria-haspopup="true" aria-expanded="false">${initialsForSession()}</button>
             <div class="ps-dropdown ps-profile-menu" id="profile-menu" role="menu" hidden>
               <div class="ps-profile-menu-head"><span class="ps-user-mark">${initialsForSession()}</span><div><strong>${escapeHTML(authSession.user.displayName)}</strong><small>${escapeHTML(authSession.user.email)}</small><em>${roleLabel(adminPreviewRole ?? authSession.user.role)}</em></div></div>
-              <button type="button" role="menuitem" data-menu-module="perfil"><span aria-hidden="true">♙</span>Mi perfil público</button>
-              <button type="button" role="menuitem" data-menu-module="noticias"><span aria-hidden="true">▤</span>Mis publicaciones y noticias</button>
-              <button type="button" role="menuitem" data-menu-module="actividades"><span aria-hidden="true">◷</span>Mi progreso y actividades</button>
-              <button type="button" role="menuitem" data-menu-module="comunidades"><span aria-hidden="true">◌</span>Mis grupos y comunidades</button>
-              <button type="button" role="menuitem" data-menu-module="cursos"><span aria-hidden="true">▦</span>Mis cursos</button>
-              <button type="button" role="menuitem" data-menu-module="tutorias"><span aria-hidden="true">✎</span>Tutorías</button>
-              <button type="button" role="menuitem" data-menu-module="bienestar"><span aria-hidden="true">♡</span>Bienestar y soporte</button>
-              <button type="button" role="menuitem" id="menu-notifications"><span aria-hidden="true">🔔</span>Notificaciones</button>
+${profileMenuItems()}
               <button type="button" role="menuitem" id="menu-home"><span aria-hidden="true">⌂</span>Menú principal</button>
               <button type="button" role="menuitem" class="is-danger" id="sign-out"><span aria-hidden="true">⎋</span>Cerrar sesión</button>
             </div>
@@ -578,6 +585,149 @@ function roleLabel(role: UserRole | "admin" | "teacher" | "student"): string {
   return role === "admin" ? "Administrador" : role === "teacher" ? "Docente" : "Estudiante";
 }
 
+const notificationTypes: Array<{ key: string; label: string }> = [
+  { key: "system", label: "Avisos del sistema" },
+  { key: "activity", label: "Actividades y calificaciones" },
+  { key: "message", label: "Mensajes" },
+  { key: "event", label: "Eventos del campus" },
+];
+
+function notificationPrefsKey(): string {
+  return `poliscroll:notification-prefs:${authSession?.user.id ?? "anon"}`;
+}
+
+function loadNotificationPrefs(): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem(notificationPrefsKey()) ?? "{}") as Record<string, boolean>; } catch { return {}; }
+}
+
+function renderAccountView(): string {
+  const role = visibleRole();
+  const prefs = loadNotificationPrefs();
+  const privacy = role === "student" || role === "teacher"
+    ? `<section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Privacidad del perfil</strong><span>Controla si apareces en el directorio</span></div><label class="ps-check-row"><input type="checkbox" id="privacy-toggle" disabled /> Mostrar mi perfil en el directorio público</label><p class="ps-management-feedback" id="privacy-feedback" role="status"></p></section>`
+    : "";
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+    <div class="ps-module-heading"><div><p class="ps-eyebrow">Tu cuenta / Configuración</p><h1 id="module-title">Configuración de cuenta.</h1><p class="ps-module-description">Administra tu seguridad, privacidad y avisos. Sesión: ${escapeHTML(authSession?.user.email ?? "")}.</p></div></div>
+    <div class="ps-admin-panels">
+      <form class="ps-management-form" id="password-form"><div class="ps-management-form-heading"><strong>Cambiar contraseña</strong><span>Mínimo 8 caracteres</span></div>
+        <label>Contraseña actual<input name="oldPassword" type="password" autocomplete="current-password" required /></label>
+        <label>Nueva contraseña<input name="newPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <label>Confirmar nueva contraseña<input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <button class="ps-create-button" type="submit">Actualizar contraseña <span>↗</span></button><p class="ps-management-feedback" id="password-feedback" role="status"></p></form>
+      <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Preferencias de notificación</strong><span>Qué avisos ves en la campanita</span></div>
+        ${notificationTypes.map((type) => `<label class="ps-check-row"><input type="checkbox" data-notification-pref="${type.key}" ${prefs[type.key] === false ? "" : "checked"} /> ${type.label}</label>`).join("")}
+        <p class="ps-management-feedback" id="prefs-feedback" role="status"></p></section>
+      ${privacy}
+    </div></section>`;
+}
+
+function wireAccountView(): void {
+  const form = document.querySelector<HTMLFormElement>("#password-form");
+  const feedback = document.querySelector<HTMLParagraphElement>("#password-feedback");
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!feedback) return;
+    const values = new FormData(form);
+    const next = String(values.get("newPassword") ?? "");
+    if (next !== String(values.get("confirmPassword") ?? "")) { feedback.textContent = "Las contraseñas nuevas no coinciden."; return; }
+    feedback.textContent = "Actualizando…";
+    void changePassword(String(values.get("oldPassword") ?? ""), next).then(() => { feedback.textContent = "Contraseña actualizada."; form.reset(); }).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo actualizar la contraseña."; });
+  });
+  document.querySelectorAll<HTMLInputElement>("[data-notification-pref]").forEach((input) => input.addEventListener("change", () => {
+    const prefs = loadNotificationPrefs();
+    prefs[input.dataset.notificationPref ?? ""] = input.checked;
+    localStorage.setItem(notificationPrefsKey(), JSON.stringify(prefs));
+    const note = document.querySelector<HTMLElement>("#prefs-feedback");
+    if (note) note.textContent = "Preferencias guardadas en este dispositivo.";
+  }));
+  const toggle = document.querySelector<HTMLInputElement>("#privacy-toggle");
+  const privacyFeedback = document.querySelector<HTMLElement>("#privacy-feedback");
+  if (toggle && authSession) {
+    let recordId = "";
+    void getOwnPublicProfile(authSession.user.id).then((profile) => {
+      if (!profile) { if (privacyFeedback) privacyFeedback.textContent = "Aún no tienes perfil público."; return; }
+      recordId = profile.id;
+      toggle.checked = profile.isPublic !== false;
+      toggle.disabled = false;
+    }).catch(() => { if (privacyFeedback) privacyFeedback.textContent = "No se pudo cargar tu privacidad."; });
+    toggle.addEventListener("change", () => {
+      toggle.disabled = true;
+      void updatePublicProfile({ id: recordId, isPublic: toggle.checked }).then(() => { if (privacyFeedback) privacyFeedback.textContent = toggle.checked ? "Tu perfil es público." : "Tu perfil ahora es privado."; }).catch((error: unknown) => { toggle.checked = !toggle.checked; if (privacyFeedback) privacyFeedback.textContent = error instanceof Error ? error.message : "No se pudo guardar."; }).finally(() => { toggle.disabled = false; });
+    });
+  }
+}
+
+const ticketStatusLabels: Record<string, string> = { open: "Abierta", in_progress: "En atención", resolved: "Resuelta", closed: "Cerrada" };
+
+function renderHelpView(): string {
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+    <div class="ps-module-heading"><div><p class="ps-eyebrow">Soporte / Ayuda y PQRS</p><h1 id="module-title">Ayuda y PQRS.</h1><p class="ps-module-description">Envía peticiones, quejas, reclamos o sugerencias. El equipo responderá aquí y te avisará en la campanita.</p></div></div>
+    <div class="ps-admin-panels">
+      <form class="ps-management-form" id="ticket-form"><div class="ps-management-form-heading"><strong>Nueva solicitud</strong><span>Respuesta dentro de la plataforma</span></div>
+        <label>Tipo<select name="category"><option value="technical">Problema técnico</option><option value="account">Mi cuenta</option><option value="academic">Académico</option><option value="wellness">Bienestar</option><option value="content">Contenido</option><option value="other">Petición, queja o sugerencia</option></select></label>
+        <label>Asunto<input name="subject" required maxlength="120" /></label>
+        <label>Descripción<textarea name="description" required maxlength="1500"></textarea></label>
+        <button class="ps-create-button" type="submit">Enviar solicitud <span>↗</span></button><p class="ps-management-feedback" id="ticket-feedback" role="status"></p></form>
+      <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Mis solicitudes</strong><span>Estado y respuestas</span></div><div class="ps-management-list" id="my-tickets"><p class="ps-empty-state">Cargando…</p></div></section>
+    </div></section>`;
+}
+
+function wireHelpView(): void {
+  const form = document.querySelector<HTMLFormElement>("#ticket-form");
+  const feedback = document.querySelector<HTMLParagraphElement>("#ticket-feedback");
+  const list = document.querySelector<HTMLDivElement>("#my-tickets");
+  if (!form || !feedback || !list || !authSession) return;
+  const paint = async (): Promise<void> => {
+    const tickets = (await listSupportTickets()).filter((ticket) => ticket.requesterId === authSession!.user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    list.innerHTML = tickets.map((ticket) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${ticketStatusLabels[ticket.status ?? "open"] ?? "Abierta"}</span><h2>${escapeHTML(ticket.subject)}</h2><p>${escapeHTML(ticket.description)}</p>${ticket.response ? `<p><strong>Respuesta:</strong> ${escapeHTML(ticket.response)}</p>` : ""}</div></article>`).join("") || `<p class="ps-empty-state">No has enviado solicitudes.</p>`;
+  };
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = new FormData(form);
+    feedback.textContent = "Enviando…";
+    void createSupportTicket({ subject: String(values.get("subject") ?? "").trim(), description: String(values.get("description") ?? "").trim(), requesterId: authSession!.user.id, requesterEmail: authSession!.user.email, category: String(values.get("category")) as "account" | "academic" | "technical" | "wellness" | "content" | "other" })
+      .then(() => { feedback.textContent = "Solicitud enviada."; form.reset(); return paint(); })
+      .catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo enviar."; });
+  });
+  void paint().catch((error: unknown) => { list.textContent = error instanceof Error ? error.message : "No se pudieron cargar tus solicitudes."; });
+}
+
+function renderTeacherApplicationsView(): string {
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title"><div class="ps-module-heading"><div><p class="ps-eyebrow">Administración / Docentes</p><h1 id="module-title">Solicitudes docentes.</h1><p class="ps-module-description">Revisa quién pidió acceso como docente y apruébalo o recházalo.</p></div></div><section class="ps-management-panel"><div class="ps-management-list" id="teacher-applications-view"><p class="ps-empty-state">Cargando solicitudes…</p></div><p class="ps-management-feedback" id="applications-feedback" role="status"></p></section></section>`;
+}
+
+function wireTeacherApplicationsView(): void {
+  const list = document.querySelector<HTMLDivElement>("#teacher-applications-view");
+  const feedback = document.querySelector<HTMLParagraphElement>("#applications-feedback");
+  if (!list || !feedback || !authSession) return;
+  const statusLabel: Record<string, string> = { pending: "Pendiente", approved: "Aprobada", rejected: "Rechazada" };
+  const paint = async (): Promise<void> => {
+    const applications = (await listTeacherApplications()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    list.innerHTML = applications.map((application) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${statusLabel[application.status ?? "pending"]}</span><h2>${escapeHTML(application.applicantName)}</h2><p>${escapeHTML(application.applicantEmail)} · ${escapeHTML(application.institution ?? "Sin institución")} · ${escapeHTML(application.academicProgram ?? "")}</p><p>${escapeHTML(application.experience ?? "")}</p></div>${application.status === "pending" ? `<div class="ps-inline-actions"><button class="ps-secondary-button" type="button" data-application="${application.id}" data-next="approved">Aprobar</button><button class="ps-secondary-button" type="button" data-application="${application.id}" data-next="rejected">Rechazar</button></div>` : ""}</article>`).join("") || `<p class="ps-empty-state">No hay solicitudes.</p>`;
+    list.querySelectorAll<HTMLButtonElement>("[data-application]").forEach((button) => button.addEventListener("click", () => {
+      button.disabled = true;
+      void updateTeacherApplicationStatus(button.dataset.application ?? "", button.dataset.next as "approved" | "rejected", authSession!.user.id).then(paint).catch((error: unknown) => { button.disabled = false; feedback.textContent = error instanceof Error ? error.message : "No se pudo actualizar."; });
+    }));
+  };
+  void paint().catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudieron cargar las solicitudes."; });
+}
+
+function profileMenuItems(): string {
+  const role = visibleRole();
+  const item = (id: string, icon: string, label: string): string => `<button type="button" role="menuitem" data-menu-module="${id}"><span aria-hidden="true">${icon}</span>${label}</button>`;
+  const groups: string[] = [];
+  if (role === "admin" || role === "super_admin") {
+    groups.push(item("perfil", "⌘", "Panel de control"), item("solicitudes", "✔", "Solicitudes docentes"), item("noticias", "▤", "Noticias del campus"), item("comunidades", "◌", "Grupos de estudio"));
+  } else if (role === "teacher") {
+    groups.push(item("perfil", "♙", "Mi perfil público"), item("revision", "✎", "Revisión de calificaciones"), item("noticias", "▤", "Mis publicaciones"), item("comunidades", "◌", "Mis grupos"), item("cursos", "▦", "Mis cursos"), item("tutorias", "✦", "Tutorías"));
+  } else {
+    groups.push(item("perfil", "♙", "Mi perfil público"), item("progreso", "◷", "Mi progreso"), item("noticias", "▤", "Mis publicaciones y noticias"), item("comunidades", "◌", "Mis grupos"), item("cursos", "▦", "Mis cursos"), item("tutorias", "✦", "Tutorías"));
+  }
+  groups.push(`<button type="button" role="menuitem" id="menu-messages"><span aria-hidden="true">✉</span>Mensajes · PoliChat</button>`);
+  groups.push(item("bienestar", "♡", "Bienestar"), item("ayuda", "?", "Ayuda y PQRS"), item("cuenta", "⚙", "Configuración de cuenta"));
+  return groups.join("");
+}
+
 function wireTopbarMenus(closeDrawer: () => void): void {
   const profileButton = document.querySelector<HTMLButtonElement>("#open-profile-menu");
   const profileMenu = document.querySelector<HTMLElement>("#profile-menu");
@@ -611,7 +761,8 @@ function wireTopbarMenus(closeDrawer: () => void): void {
   const refresh = (): void => {
     void listNotifications().then((result) => {
       const userId = authSession?.user.id;
-      items = result.filter((item) => item.userId === userId);
+      const prefs = loadNotificationPrefs();
+      items = result.filter((item) => item.userId === userId && prefs[item.type ?? "system"] !== false);
       paint();
     }).catch(() => { list.innerHTML = `<p class="ps-empty-state">No se pudieron cargar las notificaciones.</p>`; });
   };
@@ -621,6 +772,7 @@ function wireTopbarMenus(closeDrawer: () => void): void {
   profileMenu.addEventListener("click", (event) => event.stopPropagation());
   bellPanel.addEventListener("click", (event) => event.stopPropagation());
   document.querySelector<HTMLButtonElement>("#menu-notifications")?.addEventListener("click", (event) => { event.stopPropagation(); closeAll(); bellPanel.hidden = false; bellButton.setAttribute("aria-expanded", "true"); refresh(); });
+  document.querySelector<HTMLButtonElement>("#menu-messages")?.addEventListener("click", () => { closeAll(); document.querySelector<HTMLButtonElement>("#open-polichat")?.click(); });
   document.querySelector<HTMLButtonElement>("#menu-home")?.addEventListener("click", () => { closeAll(); goHome(); });
   document.querySelectorAll<HTMLButtonElement>("[data-menu-module]").forEach((button) => button.addEventListener("click", () => { closeAll(); openModule(button.dataset.menuModule ?? "perfil"); }));
   document.querySelector<HTMLButtonElement>("#mark-all-read")?.addEventListener("click", () => {
@@ -923,6 +1075,11 @@ function renderRoleWorkspace(): string {
 }
 
 function renderModule(module: ModuleData): string {
+  if (module.id === "cuenta") return renderAccountView();
+  if (module.id === "ayuda") return renderHelpView();
+  if (module.id === "progreso") return renderStudentProgressModule();
+  if (module.id === "revision") return renderTeacherReviewModule();
+  if (module.id === "solicitudes") return renderTeacherApplicationsView();
   const isActivities = module.id === "actividades";
   const isGames = module.id === "juegos";
   if (module.id === "cursos") return renderCoursesModule(module);
@@ -1098,6 +1255,11 @@ function wireHome(): void {
 }
 
 function wireModule(module: ModuleData): void {
+  if (module.id === "cuenta") { wireAccountView(); return; }
+  if (module.id === "ayuda") { wireHelpView(); return; }
+  if (module.id === "progreso") { wireAcademicModule("student"); return; }
+  if (module.id === "revision") { wireAcademicModule("teacher"); return; }
+  if (module.id === "solicitudes") { wireTeacherApplicationsView(); return; }
   if (module.id === "perfil" && (visibleRole() === "admin" || authSession?.user.role === "super_admin")) {
     wireAdminModule();
     return;
@@ -2110,7 +2272,7 @@ function scrollToModule(index: number): void {
 }
 
 function openModule(moduleId: string): void {
-  selectedModuleId = modules.some((module) => module.id === moduleId) ? moduleId : modules[0].id;
+  selectedModuleId = modules.some((module) => module.id === moduleId) || moduleId in utilityViews ? moduleId : modules[0].id;
   searchQuery = "";
   activityFilter = "all";
   screen = "module";
@@ -2126,7 +2288,7 @@ function goHome(): void {
 }
 
 function applyRoute(route: AppRoute): void {
-  if (route.screen === "module" && route.moduleId && modules.some((module) => module.id === route.moduleId)) {
+  if (route.screen === "module" && route.moduleId && (modules.some((module) => module.id === route.moduleId) || route.moduleId in utilityViews)) {
     selectedModuleId = route.moduleId;
     screen = "module";
   } else {

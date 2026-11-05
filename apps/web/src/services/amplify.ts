@@ -9,6 +9,7 @@ import {
   signIn,
   signOut,
   signUp,
+  updatePassword,
 } from "aws-amplify/auth";
 import type { AuthSession, UserProfile, UserRole } from "../domain/identity";
 
@@ -90,4 +91,8 @@ export async function beginPasswordReset(email: string): Promise<void> {
 
 export async function finishPasswordReset(email: string, code: string, newPassword: string): Promise<void> {
   await confirmResetPassword({ username: email, confirmationCode: code, newPassword });
+}
+
+export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  await updatePassword({ oldPassword, newPassword });
 }

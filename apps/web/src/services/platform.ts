@@ -189,6 +189,18 @@ export async function listSupportTickets(): Promise<Schema["SupportTicket"]["typ
   return result.data;
 }
 
+export async function createSupportTicket(input: {
+  subject: string;
+  description: string;
+  requesterId: string;
+  requesterEmail: string;
+  category: "account" | "academic" | "technical" | "wellness" | "content" | "other";
+}): Promise<void> {
+  const now = new Date().toISOString();
+  const result = await client.models.SupportTicket.create({ ...input, priority: "normal", status: "open", createdAt: now, updatedAt: now });
+  if (result.errors?.length) throw new Error("No se pudo enviar tu solicitud.");
+}
+
 export async function updateSupportTicket(input: {
   id: string;
   status: "open" | "in_progress" | "resolved" | "closed";
