@@ -91,12 +91,14 @@ const schema = a.schema({
       score: a.integer().default(0),
       completed: a.boolean().default(false),
       abandoned: a.boolean().default(false),
+      events: a.hasMany("ActivityEvent", "sessionId"),
     })
     .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
 
   ActivityEvent: a
     .model({
-      sessionId: a.string().required(),
+      sessionId: a.id().required(),
+      session: a.belongsTo("ActivitySession", "sessionId"),
       activityId: a.string().required(),
       gameId: a.string(),
       eventType: a.string().required(),
@@ -136,12 +138,14 @@ const schema = a.schema({
       status: a.enum(["active", "archived", "pending"]),
       educationalLevel: a.enum(["Primaria", "Secundaria", "Universitaria"]),
       academicProgram: a.string(),
+      memberships: a.hasMany("GroupMembership", "groupId"),
     })
     .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 
   GroupMembership: a
     .model({
-      groupId: a.string().required(),
+      groupId: a.id().required(),
+      group: a.belongsTo("StudyGroup", "groupId"),
       userId: a.string().required(),
       role: a.enum(["student", "teacher", "coordinator"]),
       status: a.enum(["active", "invited", "removed"]),
@@ -192,12 +196,14 @@ const schema = a.schema({
       coverImageUrl: a.string(),
       resourceLinks: a.string().array(),
       materialsDescription: a.string(),
+      enrollments: a.hasMany("CourseEnrollment", "courseId"),
     })
     .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 
   CourseEnrollment: a
     .model({
-      courseId: a.string().required(),
+      courseId: a.id().required(),
+      course: a.belongsTo("Course", "courseId"),
       userId: a.string().required(),
       status: a.enum(["active", "completed", "cancelled"]),
       enrolledAt: a.datetime().required(),
@@ -212,12 +218,14 @@ const schema = a.schema({
       availability: a.string().required(),
       modality: a.enum(["Presencial", "Virtual", "Hibrido"]),
       status: a.enum(["active", "paused", "closed"]),
+      bookings: a.hasMany("TutoringBooking", "offerId"),
     })
     .authorization((allow) => [allow.owner(), allow.authenticated().to(["read"]), allow.groups(["admin", "teacher"])]),
 
   TutoringBooking: a
     .model({
-      offerId: a.string().required(),
+      offerId: a.id().required(),
+      offer: a.belongsTo("TutoringOffer", "offerId"),
       studentId: a.string().required(),
       scheduledAt: a.datetime().required(),
       status: a.enum(["requested", "confirmed", "cancelled", "completed"]),
@@ -233,12 +241,15 @@ const schema = a.schema({
       createdBy: a.string().required(),
       lastMessageAt: a.datetime(),
       archived: a.boolean().default(false),
+      participants: a.hasMany("ChatParticipant", "conversationId"),
+      messages: a.hasMany("ChatMessage", "conversationId"),
     })
     .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
 
   ChatParticipant: a
     .model({
-      conversationId: a.string().required(),
+      conversationId: a.id().required(),
+      conversation: a.belongsTo("ChatConversation", "conversationId"),
       userId: a.string().required(),
       joinedAt: a.datetime().required(),
       lastReadAt: a.datetime(),
@@ -248,7 +259,8 @@ const schema = a.schema({
 
   ChatMessage: a
     .model({
-      conversationId: a.string().required(),
+      conversationId: a.id().required(),
+      conversation: a.belongsTo("ChatConversation", "conversationId"),
       senderId: a.string().required(),
       body: a.string().required(),
       sentAt: a.datetime().required(),
@@ -268,12 +280,14 @@ const schema = a.schema({
       model: a.string(),
       tokenCount: a.integer(),
       status: a.enum(["active", "completed", "failed"]),
+      feedback: a.hasMany("AIFeedback", "sessionId"),
     })
     .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
 
   AIFeedback: a
     .model({
-      sessionId: a.string().required(),
+      sessionId: a.id().required(),
+      session: a.belongsTo("AISession", "sessionId"),
       userId: a.string().required(),
       prompt: a.string().required(),
       response: a.string().required(),
@@ -316,13 +330,15 @@ const schema = a.schema({
       icon: a.string(),
       points: a.integer().default(0),
       active: a.boolean().default(true),
+      earnedBy: a.hasMany("UserAchievement", "achievementId"),
     })
     .authorization((allow) => [allow.authenticated().to(["read"]), allow.owner(), allow.groups(["admin", "teacher"])]),
 
   UserAchievement: a
     .model({
       userId: a.string().required(),
-      achievementId: a.string().required(),
+      achievementId: a.id().required(),
+      achievement: a.belongsTo("Achievement", "achievementId"),
       earnedAt: a.datetime().required(),
       sourceActivityId: a.string(),
     })
