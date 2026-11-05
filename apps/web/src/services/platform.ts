@@ -126,6 +126,8 @@ export async function updateUserProfileStatus(id: string, status: "active" | "su
 
 export async function deleteUserProfile(id: string): Promise<void> {
   const before = await client.models.UserProfile.get({ id });
+  const ownerId = before.data?.userId;
+  if (ownerId) await purgeUserData(ownerId);
   const result = await client.models.UserProfile.delete({ id });
   if (result.errors?.length) throw new Error("No se pudo eliminar el registro del usuario.");
   await recordAudit("user.deleted", "UserProfile", id, { email: before.data?.email, role: before.data?.role, status: before.data?.status });
@@ -369,6 +371,10 @@ export async function createGradeRecord(input: {
   });
   if (result.errors?.length) throw new Error("No se pudo registrar la calificación.");
   await recordAudit("grade.recorded", "GradeRecord", result.data?.id, undefined, { studentId: input.studentId, activityId: input.activityId, score: input.score, maxScore: input.maxScore });
+  await awardAchievement(input.studentId, { key: "first-grade", title: "Primera calificación", description: "Recibiste tu primera calificación en PoliScroll.", icon: "★", points: 10 }, input.activityId);
+  if (input.maxScore > 0 && input.score / input.maxScore >= 0.9) {
+    await awardAchievement(input.studentId, { key: "high-score", title: "Excelencia", description: "Obtuviste 90% o más en una actividad.", icon: "✦", points: 25 }, input.activityId);
+  }
   const notification = await client.models.Notification.create({
     userId: input.studentId,
     title: "Nueva calificación disponible",
@@ -701,4 +707,92 @@ export async function recordTutorExchange(input: { conversationId: string; userI
   await sendChatMessage({ conversationId: input.conversationId, senderId: TUTOR_SENDER_ID, body: input.response });
   const feedback = await client.models.AIFeedback.create({ sessionId, userId: input.userId, prompt: input.prompt, response: input.response, createdAt: new Date().toISOString() });
   if (feedback.errors?.length) throw new Error("No se pudo registrar la respuesta del tutor.");
+}
+
+// Elimina los datos dependientes de un usuario para no dejar registros huérfanos.
+async function purgeUserData(userId: string): Promise<void> {
+  const [publicProfiles, notes, notifications, earned] = await Promise.all([
+    client.models.PublicProfile.list({ filter: { userId: { eq: userId } }, limit: 1000 }),
+    client.models.AcademicNote.list({ filter: { userId: { eq: userId } }, limit: 1000 }),
+    client.models.Notification.list({ filter: { userId: { eq: userId } }, limit: 1000 }),
+    client.models.UserAchievement.list({ filter: { userId: { eq: userId } }, limit: 1000 }),
+  ]);
+  await Promise.all([
+    ...publicProfiles.data.map((row) => client.models.PublicProfile.delete({ id: row.id })),
+    ...notes.data.map((row) => client.models.AcademicNote.delete({ id: row.id })),
+    ...notifications.data.map((row) => client.models.Notification.delete({ id: row.id })),
+    ...earned.data.map((row) => client.models.UserAchievement.delete({ id: row.id })),
+  ]);
+  await recordAudit("user.data_purged", "UserProfile", userId, undefined, {
+    publicProfiles: publicProfiles.data.length, notes: notes.data.length, notifications: notifications.data.length, achievements: earned.data.length,
+  });
+}
+
+export async function loadServerNotificationPrefs(email: string): Promise<Record<string, boolean> | null> {
+  const result = await client.models.UserProfile.list({ filter: { email: { eq: email } }, limit: 1 });
+  const raw = result.data[0]?.notificationPrefs;
+  if (!raw) return null;
+  try { return JSON.parse(raw) as Record<string, boolean>; } catch { return null; }
+}
+
+export async function saveServerNotificationPrefs(email: string, prefs: Record<string, boolean>): Promise<void> {
+  const result = await client.models.UserProfile.list({ filter: { email: { eq: email } }, limit: 1 });
+  const profile = result.data[0];
+  if (!profile) throw new Error("No se encontró tu perfil.");
+  const updated = await client.models.UserProfile.update({ id: profile.id, notificationPrefs: JSON.stringify(prefs) });
+  if (updated.errors?.length) throw new Error("No se pudieron guardar tus preferencias.");
+}
+
+export interface AchievementDefinition { key: string; title: string; description?: string; icon?: string; points?: number }
+
+// Otorga un logro una sola vez por usuario; es de mejor esfuerzo y nunca bloquea la acción original.
+export async function awardAchievement(userId: string, definition: AchievementDefinition, sourceActivityId?: string): Promise<void> {
+  try {
+    const catalog = await client.models.Achievement.list({ filter: { key: { eq: definition.key } }, limit: 1 });
+    const achievement = catalog.data[0] ?? (await client.models.Achievement.create({ ...definition, active: true })).data;
+    if (!achievement) return;
+    const existing = await client.models.UserAchievement.list({ filter: { userId: { eq: userId }, achievementId: { eq: achievement.id } }, limit: 1 });
+    if (existing.data.length) return;
+    await client.models.UserAchievement.create({ userId, achievementId: achievement.id, earnedAt: new Date().toISOString(), sourceActivityId });
+    await client.models.Notification.create({ userId, title: `Logro: ${definition.title}`, body: definition.description ?? "Desbloqueaste un nuevo logro.", type: "activity", createdAt: new Date().toISOString() });
+  } catch (error) {
+    console.warn("No se pudo otorgar el logro.", error);
+  }
+}
+
+export interface EarnedAchievement { id: string; title: string; description?: string | null; icon?: string | null; points?: number | null; earnedAt: string }
+
+export async function listMyAchievements(userId: string): Promise<EarnedAchievement[]> {
+  const [earned, catalog] = await Promise.all([
+    client.models.UserAchievement.list({ filter: { userId: { eq: userId } }, limit: 1000 }),
+    client.models.Achievement.list({ limit: 1000 }),
+  ]);
+  if (earned.errors?.length) throw new Error("No se pudieron cargar tus logros.");
+  const byId = new Map(catalog.data.map((item) => [item.id, item]));
+  return earned.data.flatMap((row) => {
+    const item = byId.get(row.achievementId);
+    return item ? [{ id: row.id, title: item.title, description: item.description, icon: item.icon, points: item.points, earnedAt: row.earnedAt }] : [];
+  }).sort((a, b) => b.earnedAt.localeCompare(a.earnedAt));
+}
+
+export async function listAcademicNotes(userId: string): Promise<Schema["AcademicNote"]["type"][]> {
+  const result = await client.models.AcademicNote.list({ filter: { userId: { eq: userId }, archived: { ne: true } }, limit: 1000 });
+  if (result.errors?.length) throw new Error("No se pudieron cargar tus notas.");
+  return result.data.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+}
+
+export async function saveAcademicNote(input: { id?: string; userId: string; title: string; content: string; subject?: string }): Promise<void> {
+  if (input.id) {
+    const current = await client.models.AcademicNote.get({ id: input.id });
+    const result = await client.models.AcademicNote.update({ id: input.id, title: input.title, content: input.content, subject: input.subject, version: (current.data?.version ?? 1) + 1 });
+    if (result.errors?.length) throw new Error("No se pudo actualizar la nota.");
+    return;
+  }
+  const result = await client.models.AcademicNote.create({ userId: input.userId, title: input.title, content: input.content, subject: input.subject, version: 1, archived: false });
+  if (result.errors?.length) throw new Error("No se pudo guardar la nota.");
+}
+
+export async function archiveAcademicNote(id: string): Promise<void> {
+  const result = await client.models.AcademicNote.update({ id, archived: true });
+  if (result.errors?.length) throw new Error("No se pudo archivar la nota.");
 }

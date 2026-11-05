@@ -22,6 +22,7 @@ const schema = a.schema({
       location: a.string(),
       currentStudyPlace: a.string(),
       isPublic: a.boolean().default(true),
+      notificationPrefs: a.string(),
     })
     .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"]) ]),
 
@@ -316,7 +317,7 @@ const schema = a.schema({
       points: a.integer().default(0),
       active: a.boolean().default(true),
     })
-    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+    .authorization((allow) => [allow.authenticated().to(["read"]), allow.owner(), allow.groups(["admin", "teacher"])]),
 
   UserAchievement: a
     .model({
@@ -325,7 +326,7 @@ const schema = a.schema({
       earnedAt: a.datetime().required(),
       sourceActivityId: a.string(),
     })
-    .authorization((allow) => [allow.owner(), allow.groups(["admin", "teacher"])]),
+    .authorization((allow) => [allow.owner(), allow.ownerDefinedIn("userId").to(["read"]), allow.groups(["admin", "teacher"])]),
 
   AuditLog: a
     .model({

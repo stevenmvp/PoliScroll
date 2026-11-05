@@ -50,6 +50,12 @@ import {
   listNotifications,
   createSupportTicket,
   loadChatHistory,
+  loadServerNotificationPrefs,
+  saveServerNotificationPrefs,
+  listMyAchievements,
+  listAcademicNotes,
+  saveAcademicNote,
+  archiveAcademicNote,
   recordTutorExchange,
   markNotificationRead,
   listStudyGroups,
@@ -383,6 +389,7 @@ const utilityViews: Record<string, string> = {
   cuenta: "Configuración de cuenta",
   ayuda: "Ayuda y PQRS",
   progreso: "Mi progreso",
+  notas: "Mis notas y logros",
   revision: "Revisión de calificaciones",
   solicitudes: "Solicitudes docentes",
 };
@@ -664,7 +671,10 @@ function wireAccountView(): void {
     prefs[input.dataset.notificationPref ?? ""] = input.checked;
     localStorage.setItem(notificationPrefsKey(), JSON.stringify(prefs));
     const note = document.querySelector<HTMLElement>("#prefs-feedback");
-    if (note) note.textContent = "Preferencias guardadas en este dispositivo.";
+    if (note) note.textContent = "Guardando…";
+    void saveServerNotificationPrefs(authSession?.user.email ?? "", prefs)
+      .then(() => { if (note) note.textContent = "Preferencias guardadas en tu cuenta."; })
+      .catch((error: unknown) => { if (note) note.textContent = error instanceof Error ? error.message : "No se pudieron guardar."; });
   }));
   const toggle = document.querySelector<HTMLInputElement>("#privacy-toggle");
   const privacyFeedback = document.querySelector<HTMLElement>("#privacy-feedback");
@@ -684,6 +694,48 @@ function wireAccountView(): void {
 }
 
 const ticketStatusLabels: Record<string, string> = { open: "Abierta", in_progress: "En atención", resolved: "Resuelta", closed: "Cerrada" };
+
+function renderNotesView(): string {
+  return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
+    <div class="ps-module-heading"><div><p class="ps-eyebrow">Tu cuenta / Notas</p><h1 id="module-title">Mis notas y logros.</h1><p class="ps-module-description">Tus apuntes académicos se guardan en tu cuenta con control de versiones; los logros se desbloquean con tu actividad.</p></div></div>
+    <div class="ps-admin-panels">
+      <form class="ps-management-form" id="note-form"><div class="ps-management-form-heading"><strong>Nueva nota</strong><span>Privada, solo tú y tus docentes</span></div>
+        <label>Título<input name="title" required maxlength="120" /></label>
+        <label>Materia<input name="subject" maxlength="80" /></label>
+        <label>Contenido<textarea name="content" required maxlength="4000"></textarea></label>
+        <button class="ps-create-button" type="submit">Guardar nota <span>↗</span></button><p class="ps-management-feedback" id="note-feedback" role="status"></p></form>
+      <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Mis notas</strong><span>Más recientes primero</span></div><div class="ps-management-list" id="my-notes"><p class="ps-empty-state">Cargando…</p></div></section>
+      <section class="ps-management-panel"><div class="ps-management-form-heading"><strong>Mis logros</strong><span>Reconocimientos obtenidos</span></div><div class="ps-management-list" id="my-achievements"><p class="ps-empty-state">Cargando…</p></div></section>
+    </div></section>`;
+}
+
+function wireNotesView(): void {
+  const form = document.querySelector<HTMLFormElement>("#note-form");
+  const feedback = document.querySelector<HTMLParagraphElement>("#note-feedback");
+  const list = document.querySelector<HTMLDivElement>("#my-notes");
+  const achievements = document.querySelector<HTMLDivElement>("#my-achievements");
+  if (!form || !feedback || !list || !achievements || !authSession) return;
+  const userId = authSession.user.id;
+  const paint = async (): Promise<void> => {
+    const notes = await listAcademicNotes(userId);
+    list.innerHTML = notes.map((note) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(note.subject ?? "General")} · v${note.version ?? 1}</span><h2>${escapeHTML(note.title)}</h2><p>${escapeHTML(note.content)}</p></div><button type="button" class="ps-create-button" data-archive-note="${note.id}">Archivar</button></article>`).join("") || `<p class="ps-empty-state">Aún no tienes notas.</p>`;
+    list.querySelectorAll<HTMLButtonElement>("[data-archive-note]").forEach((button) => button.addEventListener("click", () => {
+      void archiveAcademicNote(button.dataset.archiveNote ?? "").then(paint).catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo archivar."; });
+    }));
+  };
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = new FormData(form);
+    feedback.textContent = "Guardando…";
+    void saveAcademicNote({ userId, title: String(values.get("title") ?? "").trim(), subject: String(values.get("subject") ?? "").trim() || undefined, content: String(values.get("content") ?? "").trim() })
+      .then(() => { feedback.textContent = "Nota guardada."; form.reset(); return paint(); })
+      .catch((error: unknown) => { feedback.textContent = error instanceof Error ? error.message : "No se pudo guardar."; });
+  });
+  void paint().catch((error: unknown) => { list.textContent = error instanceof Error ? error.message : "No se pudieron cargar tus notas."; });
+  void listMyAchievements(userId).then((items) => {
+    achievements.innerHTML = items.map((item) => `<article class="ps-management-card"><div><span class="ps-feed-tag">${escapeHTML(item.icon ?? "★")} +${item.points ?? 0} pts</span><h2>${escapeHTML(item.title)}</h2><p>${escapeHTML(item.description ?? "")}</p></div></article>`).join("") || `<p class="ps-empty-state">Aún no tienes logros. Recibe tu primera calificación para desbloquear uno.</p>`;
+  }).catch(() => { achievements.textContent = "No se pudieron cargar tus logros."; });
+}
 
 function renderHelpView(): string {
   return `<section class="ps-module-view ps-management-view" aria-labelledby="module-title">
@@ -747,7 +799,7 @@ function profileMenuItems(): string {
   } else if (role === "teacher") {
     groups.push(item("perfil", "♙", "Mi perfil público"), item("revision", "✎", "Revisión de calificaciones"), item("noticias", "▤", "Mis publicaciones"), item("comunidades", "◌", "Mis grupos"), item("cursos", "▦", "Mis cursos"), item("tutorias", "✦", "Tutorías"));
   } else {
-    groups.push(item("perfil", "♙", "Mi perfil público"), item("progreso", "◷", "Mi progreso"), item("noticias", "▤", "Mis publicaciones y noticias"), item("comunidades", "◌", "Mis grupos"), item("cursos", "▦", "Mis cursos"), item("tutorias", "✦", "Tutorías"));
+    groups.push(item("perfil", "♙", "Mi perfil público"), item("progreso", "◷", "Mi progreso"), item("notas", "✎", "Mis notas y logros"), item("noticias", "▤", "Mis publicaciones y noticias"), item("comunidades", "◌", "Mis grupos"), item("cursos", "▦", "Mis cursos"), item("tutorias", "✦", "Tutorías"));
   }
   groups.push(`<button type="button" role="menuitem" id="menu-messages"><span aria-hidden="true">✉</span>Mensajes · PoliChat</button>`);
   groups.push(item("bienestar", "♡", "Bienestar"), item("ayuda", "?", "Ayuda y PQRS"), item("cuenta", "⚙", "Configuración de cuenta"));
@@ -1103,6 +1155,7 @@ function renderRoleWorkspace(): string {
 function renderModule(module: ModuleData): string {
   if (module.id === "cuenta") return renderAccountView();
   if (module.id === "ayuda") return renderHelpView();
+  if (module.id === "notas") return renderNotesView();
   if (module.id === "progreso") return renderStudentProgressModule();
   if (module.id === "revision") return renderTeacherReviewModule();
   if (module.id === "solicitudes") return renderTeacherApplicationsView();
@@ -1283,6 +1336,7 @@ function wireHome(): void {
 function wireModule(module: ModuleData): void {
   if (module.id === "cuenta") { wireAccountView(); return; }
   if (module.id === "ayuda") { wireHelpView(); return; }
+  if (module.id === "notas") { wireNotesView(); return; }
   if (module.id === "progreso") { wireAcademicModule("student"); return; }
   if (module.id === "revision") { wireAcademicModule("teacher"); return; }
   if (module.id === "solicitudes") { wireTeacherApplicationsView(); return; }
@@ -2350,6 +2404,8 @@ async function bootstrap(): Promise<void> {
       authSession = await getSession();
       if (authSession) {
         await ensureUserProfile(authSession);
+        const serverPrefs = await loadServerNotificationPrefs(authSession.user.email).catch(() => null);
+        if (serverPrefs) localStorage.setItem(notificationPrefsKey(), JSON.stringify(serverPrefs));
         dashboardSummary = await getDashboardSummary(authSession);
         initializeRoute();
       }
